@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "homegym"
+version = "0.1.0"
+description = "A custom RF Learning Environment"
+authors = [
+    { name = "Satz", email = "satz30@duck.com" }
+]
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.26.4",
+    "pygame>=2.6.0",
+]
+
+
+[tool.setuptools.packages.find]
+include = ["homegym"]
+
+[tool.pyright]
+include = [
+    "homegym/**",
+    "tests/**"
+]
+
+exclude = [
+    "**/__pycache__",
+    "/_*"
+]

@@ -1,0 +1,10 @@
+__pycache__
+_experiments
+_scratchf 
+
+*.org 
+TODO.md 
+.pytest_cache
+*.egg-info
+
+/rustygym

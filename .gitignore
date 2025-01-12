@@ -1,0 +1,22 @@
+*.org
+__pycache__
+_experiments
+_scratchf 
+_drafts 
+
+TODO.md 
+.pytest_cache
+*.egg-info
+venv
+.projectile
+
+.ipynb_checkpoints/
+
+recordlogs/
+
+todo.md
+# tensorboard logs
+runs/
+
+# Test Notebooks (playgrounds)
+0*.ipynb

@@ -1,0 +1,8 @@
+# NOTE: This is for experiments not for homegym
+# Python version >=3.11
+gymnasium>=1.0.0
+pygame>=2.6.0
+tensorboard>=2.18.0
+torch>=2.4.0
+tqdm>=4.67.1
+numpy>=1.26.4
