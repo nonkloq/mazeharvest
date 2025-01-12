@@ -23,7 +23,7 @@ actor_confs = [
             seed=1000 + x,
             num_rays=np.random.randint(15, 25),
         )
-        for x in range(4)
+        for x in range(8)
     ],
     *[
         dict(
@@ -33,7 +33,7 @@ actor_confs = [
             seed=2000 + x,
             num_rays=np.random.randint(15, 25),
         )
-        for x in range(2)
+        for x in range(8)
     ],
     *[
         dict(
@@ -43,7 +43,7 @@ actor_confs = [
             seed=3000 + x,
             num_rays=np.random.randint(15, 25),
         )
-        for x in range(2)
+        for x in range(8)
     ],
     *[
         dict(
@@ -53,7 +53,7 @@ actor_confs = [
             seed=4000 + x,
             num_rays=np.random.randint(15, 25),
         )
-        for x in range(4)
+        for x in range(8)
     ],
 ]
 
@@ -90,11 +90,11 @@ def main():
         v_min=-100,
         v_max=100,
         # buffer_capacity-1 to wait for it to become full
-        minimum_steps=1000,  # Minimum Steps in replay buffer to start the training
+        minimum_steps=3000,  # Minimum Steps in replay buffer to start the training
         n_atoms=51,
-        tau=0.005,
-        epochs=48,
-        buffer_capacity=2**18,
+        tau=0.004,
+        epochs=64,
+        buffer_capacity=2**20,
         buffer_alpha=0.8,
         buffer_beta_start=0.4,
         buffer_beta_end=1.0,
