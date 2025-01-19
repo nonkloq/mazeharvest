@@ -7,53 +7,17 @@ from eutils.mutil import get_param_count, save_checkpoint, load_checkpoint
 from eutils.ttutil import log_policy_performance, get_baselines
 
 from homegym import MazeHarvest
-from homegym._envtypings import EnvParams
-from homegym.constants import high_risk_dist
 
-
-densenv = EnvParams(0.15, 0.2, 0.04, -0.8, 0.01, -1.7, high_risk_dist)
-
-envch = ["easy", "medium", densenv]
 actor_confs = [
     *[
         dict(
-            height=20,
-            width=20,
-            env_mode="easy",
+            height=np.random.randint(10, 20),
+            width=np.random.randint(10, 20),
+            env_mode="easy" if np.random.random() < 0.5 else "medium",
             seed=1000 + x,
             num_rays=np.random.randint(15, 25),
         )
-        for x in range(8)
-    ],
-    *[
-        dict(
-            height=10,
-            width=10,
-            env_mode="easy",
-            seed=2000 + x,
-            num_rays=np.random.randint(15, 25),
-        )
-        for x in range(8)
-    ],
-    *[
-        dict(
-            height=10,
-            width=10,
-            env_mode=densenv,
-            seed=3000 + x,
-            num_rays=np.random.randint(15, 25),
-        )
-        for x in range(8)
-    ],
-    *[
-        dict(
-            height=20,
-            width=20,
-            env_mode=envch[np.random.randint(3)],
-            seed=4000 + x,
-            num_rays=np.random.randint(15, 25),
-        )
-        for x in range(8)
+        for x in range(216)
     ],
 ]
 
@@ -82,25 +46,25 @@ def main():
     trainer = RDQNTrainer(
         env_confs=actor_confs,
         modelC=Brain,
-        updates=10_000,
-        minibatch_size=256,
-        actor_steps=2,  # env roll out
-        eta=1e-4,
+        updates=5_000,
+        minibatch_size=4096,
+        actor_steps=16,  # env roll out
+        eta=1e-3,
         gamma=0.99,
         v_min=-100,
         v_max=100,
         # buffer_capacity-1 to wait for it to become full
-        minimum_steps=3000,  # Minimum Steps in replay buffer to start the training
-        n_atoms=51,
-        tau=0.004,
-        epochs=64,
+        minimum_steps=500000,  # Minimum Steps in replay buffer to start the training
+        n_atoms=101,
+        tau=0.005,
+        epochs=16,
         buffer_capacity=2**20,
-        buffer_alpha=0.8,
+        buffer_alpha=0.6,
         buffer_beta_start=0.4,
         buffer_beta_end=1.0,
         # minimum_steps // n_actors * actor_steps
-        rand_explore_till=300,  # high amount of random exploration for first N Steps
-        max_epsilon=0.3,
+        rand_explore_till=60,  # high amount of random exploration for first N Steps
+        max_epsilon=0.2,
         min_epsilon=0.01,
         mn_step=(4, 20),
         tb_writer=False,
@@ -108,7 +72,7 @@ def main():
     )
 
     try:
-        load_checkpoint(trainer, "/tmp/checkpointdir/rdqn_trainer-interrupted.pth")
+        load_checkpoint(trainer, "/tmp/checkpointdir/rdqn_trainer-lv1.pth")
     except FileNotFoundError:
         print("Checkpoint is not found.")
     except RuntimeError:
@@ -124,10 +88,10 @@ def main():
     train_complete = False
     try:
         train_complete = trainer.run_training_loop(
-            log_t=100,
-            checkpoint_t=1000,
-            cp_name="rdqn_trainer-v1.pth",
-            sep_checks=0.6,
+            log_t=50,
+            checkpoint_t=500,
+            cp_name="rdqn_trainer-lv1.pth",
+            sep_checks=0.7,
             agent_performance_logger=agent_performance_logger,
         )
     except KeyboardInterrupt:
@@ -136,7 +100,7 @@ def main():
         raise e
     finally:
         if not train_complete:
-            save_checkpoint(trainer, -1, None, "rdqn_trainer-interrupted.pth")
+            save_checkpoint(trainer, -1, None, "rdqn_trainer-lv1-interrupted.pth")
             print("Latest Checkpoint saved.")
 
         trainer.destroy()

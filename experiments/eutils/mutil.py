@@ -2,7 +2,7 @@ import math
 import os
 
 import torch
-
+from .ttutil import DEVICE
 
 millnames = ["", " K", "M", " B", " T"]
 
@@ -64,7 +64,7 @@ def _loadcp(file_path: str):
     if not os.path.exists(file_path):
         raise FileNotFoundError(f"Checkpoint file not found: {file_path}")
 
-    return torch.load(file_path, weights_only=False)
+    return torch.load(file_path, weights_only=False, map_location=DEVICE)
 
 
 def load_params(model: torch.nn.Module, file_path: str):
