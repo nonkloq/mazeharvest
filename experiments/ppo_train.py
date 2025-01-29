@@ -4,57 +4,22 @@ from tqdm import tqdm
 from algos.ppo.brain import Brain
 from algos.ppo.ppo import PPOTrainer
 from eutils import DEVICE, Record
-from eutils.mutil import print_param_counts, save_checkpoint
+from eutils.mutil import print_param_counts, save_checkpoint, load_checkpoint
 from eutils.ttutil import get_baselines, log_policy_performance
 
 from homegym import MazeHarvest
-from homegym._envtypings import EnvParams
-from homegym.constants import high_risk_dist
 
-
-densenv = EnvParams(0.15, 0.2, 0.04, -0.8, 0.01, -1.7, high_risk_dist)
-
-envch = ["easy", "medium", densenv]
 actor_confs = [
     *[
         dict(
-            height=20,
-            width=20,
-            env_mode="easy",
+            height=np.random.randint(15, 21),
+            width=np.random.randint(15, 21),
+            env_mode="easy",  # if np.random.random() < 0.7 else "medium",
             seed=1000 + x,
             num_rays=np.random.randint(15, 25),
+            max_steps=10000,
         )
-        for x in range(4)
-    ],
-    *[
-        dict(
-            height=10,
-            width=10,
-            env_mode="easy",
-            seed=2000 + x,
-            num_rays=np.random.randint(15, 25),
-        )
-        for x in range(2)
-    ],
-    *[
-        dict(
-            height=10,
-            width=10,
-            env_mode=densenv,
-            seed=3000 + x,
-            num_rays=np.random.randint(15, 25),
-        )
-        for x in range(2)
-    ],
-    *[
-        dict(
-            height=20,
-            width=20,
-            env_mode=envch[np.random.randint(3)],
-            seed=4000 + x,
-            num_rays=np.random.randint(15, 25),
-        )
-        for x in range(4)
+        for x in range(16)
     ],
 ]
 
@@ -80,9 +45,9 @@ def main():
         env_confs=actor_confs,
         model=model,
         updates=0,
-        epochs=10,
-        actor_steps=512,
-        batches=16,
+        epochs=5,
+        actor_steps=128,
+        batches=32,  # 4096: minibatch size
         c1=0.5,  # value loss coef
         c2=0.001,  # entropy bonus coef        ,
         ratio_clip_range=0.2,
@@ -93,11 +58,18 @@ def main():
         tb_writer=False,
         log_writer=True,
     )
+    cp_name = "ppo-v1-t2.pth"
+
+    try:
+        load_checkpoint(trainer, "/tmp/checkpointdir/interrupted-ppo-v1-t2.pth")
+    except FileNotFoundError:
+        print("Checkpoint is not found.")
+    except RuntimeError:
+        print("Unable to load checkpoint cause of model architecture mismatch!!")
 
     updates = 2_000
     log_t = 50
     checkpoint_t = 100
-    cp_name = "ppo-v1.pth"
     alpha = 1
     epsilon = 0.2
     trainer.ratio_clip_range = epsilon

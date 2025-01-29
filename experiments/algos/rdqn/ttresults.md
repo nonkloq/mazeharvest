@@ -746,3 +746,50 @@ One Common Model & HyperParameters used for all 1 snvironments, trained model ev
 | LunarLander-v3 | 157.12 | 164.09 | 25.16 | 2514 | 177 | 60336 | 0.2280 | 262 | 200 |
 
 > Stopped training after noticing 260+ avg reward at past 3 log step evals.
+
+# Rdqn test x [2025-01-23 22:51:45 IST]
+
+Final Test X, some code refactor...
+
+### Trainer Args 
+
+| Key | Value |
+| --- | --- |
+| updates | 10000 |
+| minibatch_size | 1024 |
+| actor_steps | 50 |
+| eta | 0.001 |
+| gamma | 0.99 |
+| v_min | -100 |
+| v_max | 100 |
+| minimum_steps | 3000 |
+| n_atoms | 51 |
+| tau | 0.005 |
+| epochs | 16 |
+| buffer_capacity | 10000 |
+| buffer_alpha | 0.8 |
+| buffer_beta_start | 0.4 |
+| buffer_beta_end | 1.0 |
+| rand_explore_till | 200 |
+| max_epsilon | 0.2 |
+| min_epsilon | 0.01 |
+| mn_step | (6, 9) |
+
+
+### Results 
+
+One Common Model & HyperParameters used for all 4 snvironments, trained model evaluated for 100 runs.
+
+> Actor(s) Count=`8`. Action Mode Deterministic=`True`.
+> Early Termination Enabled: Training will stop once the agent reaches the required amount of scores to be considered solved (By Eval at every 50 update).
+
+
+
+| Environment | Mean (rewards) | Std (rewards) | TrainTime (min) | Updates | No. Episodes | Total Steps | Final Loss | Final Eval Reward | Solved? |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| CartPole-v1 | 500.00 | 0.00 | 2.40 | 150 | 1184 | 60000 | 4.4727 | 500 | 500 |
+| MountainCar-v0 | -104.86 | 8.36 | 12.88 | 700 | 1478 | 280000 | 3.0948 | -105 | -110 |
+| LunarLander-v3 | 154.51 | 95.64 | 7.47 | 400 | 559 | 160000 | 3.0562 | 225 | 200 |
+| Acrobot-v1 | -84.02 | 36.01 | 9.45 | 500 | 630 | 200000 | 1.1048 | -74 | -100 |
+
+

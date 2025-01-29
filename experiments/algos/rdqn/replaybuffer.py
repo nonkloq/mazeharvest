@@ -76,6 +76,12 @@ class ReplayBuffer:
         self.next_idx = 0
         self.size = 0
 
+        self._update_prior_flag = False
+
+    @property
+    def isPER(self) -> bool:
+        return self._update_prior_flag
+
     def add(self, obs, action, reward, next_obs, done):
         idx = self.next_idx
 
@@ -92,9 +98,10 @@ class ReplayBuffer:
         self.size = min(self.capacity, self.size + 1)
 
     def _random_sample(self, batch_size: int) -> dict:
-        indexes = th.randint(0, self.size, size=(batch_size,))
+        indexes = np.random.randint(0, self.size, size=(batch_size,))
 
         return dict(
+            indexes=indexes,
             obs=self.data["obs"][indexes].to(device=DEVICE),
             next_obs=self.data["next_obs"][indexes].to(device=DEVICE),
             action=self.data["action"][indexes].to(device=DEVICE),
@@ -102,8 +109,25 @@ class ReplayBuffer:
             done=self.data["done"][indexes].to(device=DEVICE),
         )
 
+    def random_perm(self, batch_size: int):
+        sindexes = np.random.permutation(self.size)
+        for start in range(0, self.size, batch_size):
+            end = start + batch_size
+            indexes = sindexes[start:end]
+            yield dict(
+                indexes=indexes,
+                obs=self.data["obs"][indexes].to(device=DEVICE),
+                next_obs=self.data["next_obs"][indexes].to(device=DEVICE),
+                action=self.data["action"][indexes].to(device=DEVICE),
+                reward=self.data["reward"][indexes].to(device=DEVICE),
+                done=self.data["done"][indexes].to(device=DEVICE),
+            )
+
     def sample(self, batch_size: int) -> dict:
         return self._random_sample(batch_size)
+
+    def isfull(self) -> bool:
+        return self.size == self.capacity
 
 
 class PERBuffer(ReplayBuffer):
@@ -133,6 +157,8 @@ class PERBuffer(ReplayBuffer):
 
         self.segment_tree = SegmentTreeSM(capacity, batch_size)
         self.max_priority = 1.0
+
+        self._update_prior_flag = True
 
     def add(self, obs, action, reward, next_obs, done):
         # update the segment trees
@@ -179,40 +205,18 @@ class PERBuffer(ReplayBuffer):
             self.segment_tree.send_presample_request(self.size)
 
 
-class NStepPERBuffer(PERBuffer):
-    """
-
-    N-Step Priority Experience Replay Buffer
-    .add() should follow the same fixed order 0...n_actors
-
-    o_1_0, ... , o_1_A, .... ,o_T_0, ..., o_T_A
-    A is [0 to n_actors]
-    T is timestep, doesn't break for new episode/trajectory
-
-    Instead of fixed steps, here we can set steps range from M to N.
-    During sampling a random number between the range will be picked.
-    """
-
+class _NStepBase:
     def __init__(
         self,
-        capacity: int,
-        obsh_gen: Callable[[int], object],
-        alpha: float,
-        batch_size: int,
         mn_step: tuple[int, int],
         n_actors: int,
         gamma: float,
     ):
-        """
-        mn_step [m, n]
-        """
         assert mn_step[0] < mn_step[1], "Invalid range"
         assert (
             mn_step[0] > 1
         ), "Increase the low or Use Normal Replay Buffer or PREBuffer Instead"
 
-        # Updating (using .add()) should wo
-        super().__init__(capacity, obsh_gen, alpha, batch_size)
         self.mn_step = mn_step
         self.n_actors = n_actors
         self.gamma = gamma ** th.arange(self.mn_step[1])
@@ -307,3 +311,43 @@ class NStepPERBuffer(PERBuffer):
             gamma_k=self.gamma_sca
             ** real_steps.reshape(batch_size, 1).to(device=DEVICE),
         )
+
+
+class NStepPERBuffer(PERBuffer, _NStepBase):
+    """
+    N-Step Priority Experience Replay Buffer
+    .add() should follow the same fixed order 0...n_actors
+
+    o_1_0, ... , o_1_A, .... ,o_T_0, ..., o_T_A
+    A is [0 to n_actors]
+    T is timestep, doesn't break for new episode/trajectory
+
+    Instead of fixed steps, here we can set steps range from M to N.
+    During sampling a random number between the range will be picked.
+    """
+
+    def __init__(
+        self,
+        capacity: int,
+        obsh_gen: Callable[[int], object],
+        alpha: float,
+        batch_size: int,
+        mn_step: tuple[int, int],
+        n_actors: int,
+        gamma: float,
+    ):
+        super().__init__(capacity, obsh_gen, alpha, batch_size)
+        _NStepBase.__init__(self, mn_step, n_actors, gamma)
+
+
+class NStepBuffer(ReplayBuffer, _NStepBase):
+    def __init__(
+        self,
+        capacity: int,
+        obsh_gen: Callable[[int], object],
+        mn_step: tuple[int, int],
+        n_actors: int,
+        gamma: float,
+    ):
+        super().__init__(capacity, obsh_gen)
+        _NStepBase.__init__(self, mn_step, n_actors, gamma)

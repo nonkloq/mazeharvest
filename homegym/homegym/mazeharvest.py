@@ -177,7 +177,7 @@ class EnvBackBone:
 
     def spawn_objects_randomly(self, agent_tile: int):
         # Spawn Mole
-        if self.rman.random.random() < C.OBJECT_SPAWN_PROBABILITY:
+        if self.rman.random.random() < C.MOLE_SPAWN_PROBABILITY:
             mole = self.mole_spawner.spawn()
             if mole is not None:
                 randidx = self.board.get_empty_cell(agent_tile)
@@ -196,7 +196,7 @@ class EnvBackBone:
                     #     print(obj._view_blocker)
                     raise e
         # Spawn Plant
-        if self.rman.random.random() < C.OBJECT_SPAWN_PROBABILITY:
+        if self.rman.random.random() < C.PLANT_SPAWN_PROBABILITY:
             plant = self.plant_spawner.spawn()
             if plant is not None:
                 randidx = self.board.get_empty_cell(agent_tile)
@@ -355,7 +355,7 @@ class Agent:
     def update_health(self):
         damage_by_poison = (
             self.__env_back_bone.env_air_poison_level
-            * self.__env_back_bone._env_poison_scalar  # C.POISON_LEVEL_TO_DAMAGE_SCALAR
+            * self.__env_back_bone._env_poison_scalar
         )
 
         total_damage = sum(
@@ -592,9 +592,9 @@ class Agent:
             self._reward_function(terminal),
             (
                 perception,
-                loot_heuristics,
-                mole_heuristics,
-                damage_dirs,
+                self._normalize_vector(loot_heuristics),
+                self._normalize_vector(mole_heuristics),
+                self._normalize_vector(damage_dirs),
                 player_state,
             ),
             terminal,
@@ -633,7 +633,7 @@ class Agent:
     @staticmethod
     def _normalize_vector(vector: NDArray[np.float32]) -> NDArray[np.float32]:
         sum_vector = np.sum(vector)
-        return vector / sum_vector if sum_vector != 0 else vector
+        return vector / sum_vector if sum_vector > 0 else vector
 
     def draw(self, canvas: Surface):
         board_width = self.__env_back_bone.width

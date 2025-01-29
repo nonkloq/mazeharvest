@@ -68,9 +68,7 @@ def log_policy_performance(
     tot_counts = np.zeros(3)
     for _ in range(n_test):
         steps, kill_c, harvest_c = play(
-            env,
-            agent=agent,
-            no_head=True,
+            env, agent=agent, no_head=False, wait_for_quit=False
         )
         tot_counts[0] += steps
         tot_counts[1] += kill_c
@@ -190,3 +188,8 @@ class FlatObs:
 
     def __getitem__(self, idx):
         return (self.perc[idx], self.state[idx])
+
+
+class RewardScaler:
+    def __call__(self, reward):
+        return np.clip(reward / 100, -1.5, 1.5)
