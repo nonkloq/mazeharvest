@@ -17,13 +17,13 @@ from torch import nn
 
 sys.path.append("../../")
 
-from eutils import Actor, Record, ACTION_SPACE, DEVICE
+from eutils import ACTION_SPACE, DEVICE, Actor, Record
 from eutils.mutil import save_checkpoint
-from eutils.ttutil import obs_proc, ObsHolder
 from eutils.schedulers import Piecewise
+from eutils.ttutil import ObsHolder, obs_proc
 from tqdm import tqdm
 
-from .replaybuffer import NStepPERBuffer, ObservationHolder
+from .replaybuffer import ObservationHolder, NStepPERBuffer
 
 
 class RainbowDQN:
@@ -35,6 +35,9 @@ class RainbowDQN:
 
     def __init__(self, modelC, modelargs: dict, **kwargs):
         self.__dict__.update(kwargs)
+
+        if "use_nstep" not in kwargs:
+            self.use_nstep = True
 
         self.q_network: nn.Module = modelC(
             n_atoms=self.n_atoms, v_min=self.v_min, v_max=self.v_max, **modelargs
@@ -122,38 +125,47 @@ class RainbowDQN:
     def _hard_update(self):
         self.target_network.load_state_dict(self.q_network.state_dict())
 
-    def train(self, t: int, precomp: bool) -> dict:
-        data = self.replay_buffer.sample(self.buffer_beta(t))
-
+    def train(self, data, precomp: bool = False) -> dict:
         # Get the Q values & pmfs for the sampled actions using q_net
-        # q_val_sampled_action, _, pmfs_sampled = self.q_network.get_action(
-        #     data["obs"], data["action"]
-        # )
+        # (Using same pass for both loss calculation)
+        q_val_sampled_action, _, pmfs_sampled = self.q_network.get_action(
+            data["obs"], data["action"]
+        )
 
         losses, td_error, q_val_sampled_action = self._calc_cdqn_loss(
-            data,
-            self.gamma,
-            # pmfs_sampled, q_val_sampled_action
+            data, self.gamma, pmfs_sampled, q_val_sampled_action
         )
 
-        n_step_samples = self.replay_buffer.sample_n_steps(data["indexes"])
-        n_step_losses, td_err_n_step, _ = self._calc_cdqn_loss(
-            n_step_samples,
-            n_step_samples["gamma_k"],
-            # pmfs_sampled, q_val_sampled_action,
-        )
+        if self.use_nstep:
+            n_step_samples = self.replay_buffer.sample_n_steps(data["indexes"])
+            n_step_losses, td_err_n_step, _ = self._calc_cdqn_loss(
+                n_step_samples,
+                n_step_samples["gamma_k"],
+                pmfs_sampled,
+                q_val_sampled_action,
+            )
 
-        losses += n_step_losses
+            losses += n_step_losses
 
         # weighting the loss with current sample weights
-        loss = (losses * data["weights"]).mean()
+        if self.replay_buffer.isPER:
+            loss = (losses * data["weights"]).mean()
+        else:
+            loss = losses.mean()
 
         # ---- Out of comp graph
         # td_error -> difference
-        combined_td = (np.abs(td_error) + np.abs(td_err_n_step)) / 2
-        loss_for_prior = losses.detach().cpu().numpy()
-        new_priorities = loss_for_prior + 1e-6  # combined_td + 1e-6
-        self.replay_buffer.update_priorities(data["indexes"], new_priorities, precomp)
+        if self.use_nstep:
+            sample_td = (np.abs(td_error) + np.abs(td_err_n_step)) / 2
+        else:
+            sample_td = np.abs(td_error)
+
+        if self.replay_buffer.isPER:
+            loss_for_prior = losses.detach().cpu().numpy()
+            new_priorities = loss_for_prior + 1e-6  # sample_td + 1e-6
+            self.replay_buffer.update_priorities(
+                data["indexes"], new_priorities, precomp
+            )
         # ------------------------
 
         # Backpropagation
@@ -172,20 +184,20 @@ class RainbowDQN:
         return {
             "loss": loss.item(),
             "q_values": q_val_sampled_action.detach().cpu().mean().item(),
-            "sample_td": combined_td.mean(),
+            "sample_td": sample_td.mean(),
         }
 
     def _calc_cdqn_loss(
         self,
         data: dict,
         gamma: float | torch.Tensor,
-        # pmfs_sampled: torch.Tensor,
-        # q_val_sampled_action: torch.Tensor,
+        pmfs_sampled: torch.Tensor,
+        q_val_sampled_action: torch.Tensor,
     ):
         # Get the Q values & pmfs for the sampled actions using q_net
-        q_val_sampled_action, _, pmfs_sampled = self.q_network.get_action(
-            data["obs"], data["action"]
-        )
+        # q_val_sampled_action, _, pmfs_sampled = self.q_network.get_action(
+        #     data["obs"], data["action"]
+        # )
 
         with torch.no_grad():
             # DQL, decoupling action selection and value function.
@@ -271,6 +283,13 @@ class RDQNTrainer(RainbowDQN):
 
         self.actors = [Actor(env_confs[i]) for i in range(self.n_actors)]
 
+        # self.replay_buffer = NStepBuffer(
+        #     self.buffer_capacity,
+        #     lambda x: ObservationHolder(x),
+        #     self.mn_step,
+        #     self.n_actors,
+        #     self.gamma,
+        # )
         self.replay_buffer = NStepPERBuffer(
             self.buffer_capacity,
             lambda x: ObservationHolder(x),
@@ -345,6 +364,15 @@ class RDQNTrainer(RainbowDQN):
         sep_checks: float = -1.0,
         agent_performance_logger=None,
     ):
+        print(f"Filling samples till {self.minimum_steps} samples in buffer...")
+        for _ in tqdm(
+            range(self.minimum_steps // self.n_actors),
+            desc="Sampling Steps",
+            unit="A*Sample",
+            leave=False,
+        ):
+            self.sample(0)
+
         for update in tqdm(
             range(1, self.updates + 1),
             desc="Training",
@@ -355,16 +383,18 @@ class RDQNTrainer(RainbowDQN):
             for _ in range(self.actor_steps):
                 self.sample(update)
 
-            if self.replay_buffer.size < self.minimum_steps:
-                continue
-
             # training phase
             for x in range(1, self.epochs + 1):
+                data = self.replay_buffer.sample(
+                    # self.minibatch_size
+                    self.buffer_beta(update)
+                )
+
                 # presample indices for every epoch except the last
                 # so at new update step the sample will include new samples
                 # precomp = x < self.epochs
                 # we can also set this to true as default
-                stats = self.train(update, precomp=True)
+                stats = self.train(data, precomp=x < self.epochs)
                 if x % 4:
                     self.tr_records.append(stats)
 

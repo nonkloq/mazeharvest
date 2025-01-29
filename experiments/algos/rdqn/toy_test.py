@@ -168,6 +168,11 @@ class __Trainer(TestTrainer, RainbowDQN):
 
     def run_training_loop(self, log_t: int) -> Tuple[int, float]:
         update = 0
+
+        print("Filling samples...")
+        while self.replay_buffer.size < self.minimum_steps:
+            self.sample(update)
+
         try:
             for update in tqdm(
                 range(1, self.updates + 1),
@@ -183,12 +188,10 @@ class __Trainer(TestTrainer, RainbowDQN):
                 for _ in range(self.actor_steps):
                     self.sample(update)
 
-                if self.replay_buffer.size < self.minimum_steps:
-                    continue
-
                 # training phase
                 for x in range(1, self.epochs + 1):
-                    stats = self.train(update, precomp=x < self.epochs)
+                    data = self.replay_buffer.sample(self.buffer_beta(update))
+                    stats = self.train(data, precomp=x < self.epochs)
                     if x == self.epochs:
                         self.tr_records.append(stats)
 
@@ -222,24 +225,24 @@ if __name__ == "__main__":
         __Trainer,
         __file__,
         updates=10_000,
-        minibatch_size=42,
-        actor_steps=3,  # env roll out
-        eta=3e-4,
+        minibatch_size=64,
+        actor_steps=1,  # env roll out
+        eta=5e-4,
         gamma=0.99,
         v_min=-100,
         v_max=100,
         # buffer_capacity-1 to wait for it to become full
-        minimum_steps=3000,  # Minimum Steps in replay buffer to start the training
+        minimum_steps=8000,  # Minimum Steps in replay buffer to start the training
         n_atoms=51,
         tau=0.005,
-        epochs=64,
-        buffer_capacity=10000,
-        buffer_alpha=0.8,
+        epochs=8,
+        buffer_capacity=2**13,
+        buffer_alpha=0.6,
         buffer_beta_start=0.4,
         buffer_beta_end=1.0,
         # minimum_steps // n_actors * actor_steps
-        rand_explore_till=50,  # high amount of random exploration for first N Steps
-        max_epsilon=0.2,
+        rand_explore_till=200,  # high amount of random exploration for first N Steps
+        max_epsilon=0.8,
         min_epsilon=0.01,
-        mn_step=(8, 17),
+        mn_step=(6, 9),
     )

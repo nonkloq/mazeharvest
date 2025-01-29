@@ -8,6 +8,15 @@ MazeHarvest is a partially observable, stochastic reinforcement learning environ
 
 To install `homegym`, clone this repository and follow the instructions in [homegym/README.md](./homegym/README.md).
 
+
+<img src="./experiments/aperf/rdqn_vision_net.gif" width="300">
+<details>
+  <summary>Model Details</summary>
+
+  > RDQN Agent, CNN Policy. No Episode Memory (State In Action Out). 
+</details>
+
+
 ---
 
 ## Experiments 

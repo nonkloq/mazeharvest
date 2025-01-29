@@ -27,91 +27,43 @@ class Brain(nn.Module):
         super(Brain, self).__init__()
 
         # Initial Observation Process
-        self.bilstm_blocks = nn.ModuleList(
-            [
-                nn.LSTM(
-                    input_size=PERCEPTION_SIZE,
-                    hidden_size=8,
-                    num_layers=2,
-                    # dropout=.3,
-                    bidirectional=True,
-                    batch_first=True,
-                    bias=True,
-                )
-                for _ in range(16)
-            ]
+        self.bilstm_block = nn.Sequential(
+            nn.GRU(
+                input_size=PERCEPTION_SIZE,
+                hidden_size=128,
+                num_layers=1,
+                # dropout=0.,
+                bidirectional=True,
+                batch_first=True,
+                bias=True,
+            ),
         )
-
-        self._bilstm_outs = [None] * 16
 
         self.state_feats = nn.Sequential(
             nn.Linear(STATE_SIZE, 64),
             nn.GELU(),
-            nn.Linear(64, 128),
-            nn.GELU(),
-            nn.Linear(128, 256),
-            nn.Tanh(),
-        )
-
-        # 256 / 16 = 16, 16x16
-        self.img_height, self.img_width = 16, 16
-
-        self.conv = nn.Sequential(
-            # 16x16 -> 10x10
-            nn.Conv2d(
-                in_channels=1,
-                out_channels=16,
-                kernel_size=8,
-                stride=1,
-                padding=4,
-                dilation=2,
-                padding_mode="circular",
-                bias=True,
-            ),
-            nn.ReLU(),
-            # 10x10 -> 8x8
-            nn.Conv2d(
-                in_channels=16,
-                out_channels=32,
-                kernel_size=3,
-                stride=1,
-                padding=0,
-                dilation=1,
-                bias=True,
-            ),
-            nn.ReLU(),
-            # 8x8 -> 6x6
-            nn.Conv2d(
-                in_channels=32,
-                out_channels=32,
-                kernel_size=3,
-                stride=1,
-                padding=0,
-                bias=True,
-            ),
-            nn.ReLU(),
         )
 
         self.final_fc = nn.Sequential(
-            nn.Linear(6 * 6 * 32, 512, bias=True),
+            nn.Linear(320, 512, bias=True),
             nn.GELU(),
-            nn.Linear(512, 256, bias=True),
-            nn.Tanh(),
+            nn.Linear(512, 512, bias=True),
+            nn.GELU(),
         )
 
         self.policy_logits = nn.Sequential(
-            nn.Linear(256, 128),
+            nn.Linear(512, 256),
             nn.ReLU(),
-            nn.Linear(128, ACTION_SPACE),
+            nn.Linear(256, ACTION_SPACE),
         )
 
         self.value_function = nn.Sequential(
-            nn.Linear(256, 128),
+            nn.Linear(512, 256),
             nn.ReLU(),
-            nn.Linear(128, 1),
+            nn.Linear(256, 1),
         )
 
-    def _forw_bilstm(self, perception: list[torch.Tensor]):
+    def _forw_rnn(self, perception: list[torch.Tensor]):
         # Pad & Pack Perception sequence for batch processing
         lengths = torch.tensor([perc.size(0) for perc in perception], dtype=torch.uint8)
         paded_perception = pad_sequence(perception, batch_first=True)
@@ -120,34 +72,19 @@ class Brain(nn.Module):
             paded_perception, lengths, batch_first=True, enforce_sorted=False
         )
 
-        # num_layers *2
-        # hn = torch.zeros(4, len(perception), 8)
-        # cn = torch.zeros(4, len(perception), 8)
+        out, _ = self.bilstm_block(packed_perception)
+        out, _ = pad_packed_sequence(out, batch_first=True)
 
-        for i, bilstm in enumerate(self.bilstm_blocks):
-            out, (hn, cn) = bilstm(packed_perception)  # , (hn, cn))
-            out, _ = pad_packed_sequence(out, batch_first=True)
-            self._bilstm_outs[i] = out[:, -1, :]
-
-            # no backprob through the previous blocks
-            # hn = hn.detach()
-            # cn = cn.detach()
-
-        return torch.tanh(torch.cat(self._bilstm_outs, dim=-1))
+        return torch.tanh(out[:, -1, :])
 
     def forward(self, obs):
         perception, state = obs
 
-        percim = self._forw_bilstm(perception)
+        percim = self._forw_rnn(perception)
         stateim = self.state_feats(state)
 
-        img = percim + stateim
-
-        img = img.reshape(-1, 1, self.img_height, self.img_width)
-        img = self.conv(img)
-        observation = img.view(img.size(0), -1)  # batch, 6*6*32
-
-        features = self.final_fc(observation)  # + percim + stateim
+        obs = torch.cat((percim, stateim), dim=-1)
+        features = self.final_fc(obs)
 
         policy_logits = self.policy_logits(features)
         value = self.value_function(features).reshape(-1)  # (batch,1) -> (batch,)
