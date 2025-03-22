@@ -71,7 +71,9 @@ class PPO:
         # gae_lambda \lambda
 
         self.model = self.model.to(DEVICE)
-        self.optimizer = optim.Adam(self.model.parameters(), lr=self.eta, eps=1e-5)
+        self.optimizer = optim.Adam(
+            self.model.parameters(), lr=self.eta, eps=1e-5
+        )
 
         ## Buffers to hold sampled values
         # Trainer should implement this
@@ -95,7 +97,7 @@ class PPO:
             dtype=np.float32,
         )
         self.log_probs = np.zeros(
-            (self.n_actors, self.actor_steps + 1),
+            (self.n_actors, self.actor_steps),
             dtype=np.float32,
         )
 
@@ -165,7 +167,9 @@ class PPO:
                 end = start + self.minibatch_size
                 mini_batch_indexes = indexes[start:end]
 
-                mini_batch = {k: v[mini_batch_indexes] for k, v in samples.items()}
+                mini_batch = {
+                    k: v[mini_batch_indexes] for k, v in samples.items()
+                }
 
                 # optimize surrogate loss L wrt \theta
                 loss = self._calc_loss(mini_batch)
@@ -175,7 +179,9 @@ class PPO:
                 # Calculate gradients
                 loss.backward()
                 # Clip gradients
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=0.5)
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(), max_norm=0.5
+                )
                 # Update parameters based on gradients
                 self.optimizer.step()
 
@@ -209,7 +215,9 @@ class PPO:
         # Calculate PPO Loss: L^{CLIP} = min(surr, cliped_surr)
         surrogate_loss = ratio * sampled_advantage  # samples['advantages']
         clipped_surrogate_loss = (
-            torch.clamp(ratio, 1.0 - self.ratio_clip_range, 1.0 + self.ratio_clip_range)
+            torch.clamp(
+                ratio, 1.0 - self.ratio_clip_range, 1.0 + self.ratio_clip_range
+            )
             * sampled_advantage
         )  # samples['advantages']
 
@@ -224,9 +232,9 @@ class PPO:
         if self.valf_clip_range is None:
             values_pred = values
         else:
-            values_pred = samples["values"] + (values - samples["values"]).clamp(
-                min=-self.valf_clip_range, max=self.valf_clip_range
-            )
+            values_pred = samples["values"] + (
+                values - samples["values"]
+            ).clamp(min=-self.valf_clip_range, max=self.valf_clip_range)
         L_vf = torch.nn.functional.mse_loss(sampled_return, values_pred)
 
         # Entropy bonus: S[\pi_{\theta}](s_t)
@@ -291,8 +299,12 @@ class PPOTrainer(PPO):
 
         self._reset_environments()
 
-        self.ep_records = Record("episode_stats", writer=tb_writer, save_log=log_writer)
-        self.tr_records = Record("train_stats", writer=tb_writer, save_log=log_writer)
+        self.ep_records = Record(
+            "episode_stats", writer=tb_writer, save_log=log_writer
+        )
+        self.tr_records = Record(
+            "train_stats", writer=tb_writer, save_log=log_writer
+        )
 
     def _reset_environments(self):
         for actor in self.actors:

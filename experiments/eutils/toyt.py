@@ -10,7 +10,9 @@ import pytz
 
 
 class TestTrainer:
-    def __init__(self, envs: gymnasium.vector.VectorEnv, convergence_f) -> None:
+    def __init__(
+        self, envs: gymnasium.vector.VectorEnv, convergence_f
+    ) -> None:
         self._converge_buffer: Dict[str, Union[int, float]] = {
             "dones": 0,
             "truncs": 0,
@@ -74,7 +76,9 @@ def convergence_checker(env_id: str, threshold: int):
             done = self._converge_buffer.get("dones")
             reward = self._converge_buffer.get("reward")
 
-            print(f"Total Episodes={trunc+done} | Truncated={trunc} | Dones={done}")
+            print(
+                f"Total Episodes={trunc + done} | Truncated={trunc} | Dones={done}"
+            )
             print(f"Latest Eval Reward: {reward:.2f}")
             return
 
@@ -146,10 +150,12 @@ class ToyTester:
 
         return trainer, time.time() - start, update_steps, loss
 
-    def _results_to_md(self, results: dict, ts, test_name: str, test_desc: str):
-        _time = datetime.fromtimestamp(ts, tz=pytz.timezone("Asia/Kolkata")).strftime(
-            "%Y-%m-%d %H:%M:%S IST"
-        )
+    def _results_to_md(
+        self, results: dict, ts, test_name: str, test_desc: str
+    ):
+        _time = datetime.fromtimestamp(
+            ts, tz=pytz.timezone("Asia/Kolkata")
+        ).strftime("%Y-%m-%d %H:%M:%S IST")
 
         rmsg = (
             ""
@@ -200,8 +206,12 @@ One Common Model & HyperParameters used for all {len(results)} snvironments, tra
         ts = time.time()
         results = {}
         for env_id, solvest in TOY_ENVS:
-            print(f"\nStarting Training on {env_id}, Actors #[{self.n_envs}]...")
-            convergence_function, test_env = convergence_checker(env_id, solvest)
+            print(
+                f"\nStarting Training on {env_id}, Actors #[{self.n_envs}]..."
+            )
+            convergence_function, test_env = convergence_checker(
+                env_id, solvest
+            )
             trainer, timetook, update_steps, loss = self._train(
                 env_id, convergence_function
             )
@@ -244,19 +254,29 @@ def bootstrap(cls, fil, **kwargs):
     )
 
     parser.add_argument(
-        "--stochastic", action="store_true", help="Stochastic Evaluation Policy"
+        "--stochastic",
+        action="store_true",
+        help="Stochastic Evaluation Policy",
     )
 
-    parser.add_argument("-l", "--log", type=int, help="Log Time step.", default=100)
+    parser.add_argument(
+        "-l", "--log", type=int, help="Log Time step.", default=100
+    )
 
-    parser.add_argument("-e", "--eruns", type=int, help="Evaluation runs.", default=100)
+    parser.add_argument(
+        "-e", "--eruns", type=int, help="Evaluation runs.", default=100
+    )
 
     parser.add_argument(
         "-a", "--actors", type=int, help="Parallel Actor Count", default=8
     )
 
     parser.add_argument(
-        "-m", "--maxenvsteps", type=int, help="Parallel Actor Count", default=None
+        "-m",
+        "--maxenvsteps",
+        type=int,
+        help="Parallel Actor Count",
+        default=None,
     )
 
     args = parser.parse_args()
