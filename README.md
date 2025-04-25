@@ -11,11 +11,13 @@ To install `homegym`, clone this repository and follow the instructions in [home
 
 <!-- <img src="./experiments/aperf/rdqn_vision_net.gif" width="500"> -->
 
+<video src="https://github.com/user-attachments/assets/68a4458f-2c49-4519-9269-16c9782d2ea5" width="540" height="340"></video>
+
 <details>
   <summary>Agent Details</summary>
+  
   > LSTM-PPO Agent, Recurrent Policy with episodic memory.
 </details>
-
 
 ---
 
