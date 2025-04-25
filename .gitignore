@@ -25,3 +25,6 @@ models/
 cloudexps/
 
 *.mp4
+
+# too large files
+*.pth.ign 
