@@ -38,8 +38,8 @@ class TestTrainer:
     def run_training_loop(self, log_t: int) -> Tuple[int, float]:
         raise NotImplementedError("Trainer Missing")
 
-    # def act(self, obs: np.ndarray, deterministic: bool = True) -> int:
-    #     raise NotImplementedError("Actor Missing")
+    def prep_for_eval(self):
+        pass
 
 
 def eval_func(env, trainer: TestTrainer, n_test: int = 3):
@@ -48,6 +48,7 @@ def eval_func(env, trainer: TestTrainer, n_test: int = 3):
         state, _ = env.reset()
         done = False
         total_reward = 0
+        trainer.prep_for_eval()
         while not done:
             ac = trainer.act(state, deterministic=True)
             state, reward, done, trunc, _ = env.step(ac)

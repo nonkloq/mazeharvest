@@ -11,7 +11,8 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def obs_to_torch(perceptions, state):
     return [
-        torch.tensor(perc, dtype=torch.float32, device=DEVICE) for perc in perceptions
+        torch.tensor(perc, dtype=torch.float32, device=DEVICE)
+        for perc in perceptions
     ], torch.tensor(state, dtype=torch.float32, device=DEVICE)
 
 
@@ -64,9 +65,12 @@ def log_policy_performance(
     env,
     update_no,
     n_test=20,
+    pre_func=None,
 ):
     tot_counts = np.zeros(3)
     for _ in range(n_test):
+        if pre_func is not None:
+            pre_func()
         steps, kill_c, harvest_c = play(
             env, agent=agent, no_head=False, wait_for_quit=False
         )
@@ -79,7 +83,9 @@ def log_policy_performance(
     compared_to_random = tot_counts[0] - baseline_scores[0]
     compared_to_nothing = tot_counts[0] - baseline_scores[1]
 
-    step_improvement_from_baseline = (compared_to_random + compared_to_nothing) / 2
+    step_improvement_from_baseline = (
+        compared_to_random + compared_to_nothing
+    ) / 2
 
     print(
         f"Average Step Improvement: {step_improvement_from_baseline:.2f} | Compared to Random: {compared_to_random:.2f}, Compared to Nothing: {compared_to_nothing:.2f}"
@@ -132,8 +138,12 @@ class ObsHolderMult:
         self.n_actors = n_actors
         self.roll_out = roll_out
 
-        self.perception = np.full((self.n_actors, self.roll_out), None, dtype=object)
-        self.state = np.zeros((self.n_actors, self.roll_out, 29), dtype=np.float32)
+        self.perception = np.full(
+            (self.n_actors, self.roll_out), None, dtype=object
+        )
+        self.state = np.zeros(
+            (self.n_actors, self.roll_out, 29), dtype=np.float32
+        )
 
         self.shape = (self.n_actors, self.roll_out, -1)
 

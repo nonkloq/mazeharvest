@@ -1,7 +1,10 @@
 import math
 import os
 
+import numpy as np
 import torch
+import torch.nn as nn
+
 from .ttutil import DEVICE
 
 millnames = ["", " K", "M", " B", " T"]
@@ -16,7 +19,7 @@ def millify(n: int):
         ),
     )
 
-    return f"{n / 10**(3 * millidx):.2f}{millnames[millidx]}"
+    return f"{n / 10 ** (3 * millidx):.2f}{millnames[millidx]}"
 
 
 def get_param_count(model: torch.nn.Module):
@@ -73,7 +76,9 @@ def load_params(model: torch.nn.Module, file_path: str):
     update = checkpoint["update"]
     loss = checkpoint["loss"]
 
-    print(f"Parameters loaded from {file_path} @ iter {update} with loss {loss}")
+    print(
+        f"Parameters loaded from {file_path} @ iter {update} with loss {loss}"
+    )
     return model
 
 
@@ -106,3 +111,15 @@ def save_checkpoint(trainer, update, loss, file_name: str):
     }
     torch.save(checkpoint, checkpoint_path)
     print(f"New Checkpoint saved at {checkpoint_path}")
+
+
+def initialize_orthogonal(model, sqr: float = 2):
+    """
+    Initialize all weights in the model using orthogonal initialization
+    with gain = sqrt(2). Biases are initialized to zero.
+    """
+    for name, param in model.named_parameters():
+        if "weight" in name and param.dim() >= 2:
+            nn.init.orthogonal_(param, gain=np.sqrt(sqr))
+        elif "bias" in name:
+            nn.init.constant_(param, 0)

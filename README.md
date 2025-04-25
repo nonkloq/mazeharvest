@@ -9,11 +9,11 @@ MazeHarvest is a partially observable, stochastic reinforcement learning environ
 To install `homegym`, clone this repository and follow the instructions in [homegym/README.md](./homegym/README.md).
 
 
-<img src="./experiments/aperf/rdqn_vision_net.gif" width="500">
+<!-- <img src="./experiments/aperf/rdqn_vision_net.gif" width="500"> -->
+
 <details>
   <summary>Agent Details</summary>
-
-  > RDQN Agent, CNN Policy. No Episode Memory (State In Action Out).
+  > LSTM-PPO Agent, Recurrent Policy with episodic memory.
 </details>
 
 
@@ -21,7 +21,7 @@ To install `homegym`, clone this repository and follow the instructions in [home
 
 ## Experiments 
 
-I have Implemented few RL algorithms using Pytorch in the [experiments/algos](./experiments/algos) directory to solve this environment. Each folder contains these two file:
+Implementation of few RL algorithms using Pytorch in the [experiments/algos](./experiments/algos) directory to solve this environment. Each folder contains these two file:
 
 - **toy_test.py**: Inherits the base algorithm class to test it on gymnasium environments and logs the test results in `ttresults.md`.
 
@@ -39,7 +39,7 @@ I have Implemented few RL algorithms using Pytorch in the [experiments/algos](./
 |---------------|----------------|-----------------------------------------------------------------------------|
 | **PPO**       | `algos/ppo`    | Simple implementation of Proximal Policy Optimization (PPO) with Generalized Advantage Estimation (GAE). |
 | **Rainbow DQN** | `algos/rdqn`  | Combines C51, N-Step Learning (random M to N steps, instead of fixed N steps), Prioritized Experience Replay (PER), Double Q-Learning, and Dueling Network Architecture. |
-
+| **LSTM PPO** | `alogs/lstmppo` | Proximal Policy Optimization with an LSTM layer, truncated BPTT and previous action encoding in observation.|
 ---
 
 ### Utilities
