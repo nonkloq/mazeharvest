@@ -39,7 +39,7 @@ The agent also receives heuristic information about threats, plants and environm
 - **Walls**:
   - Breakable walls require up to 1 to 2 hits by fist or 1 shot to destroy.
   - Unbreakable walls can not be destroyed and will not deal damage.
-  - Electric walls (red colored one), when agent hits an electric wall it will lose some health (-5hp).
+  - Electric walls (red colored walls), when agent hits an electric wall it will lose some health (-5hp).
 
 ---
 
@@ -113,7 +113,7 @@ The agent's observations consist of:
 | **Facing Direction**     | (1,)      | The agent’s current facing direction, encoded as an integer or direction-specific label (e.g., 0 = North, 1 = North-East, etc.). |
 
 **Note:**
-The observation with shape one will be combined to single observation as **player_state** with shape (6, ).
+The observations with shape (1,) will be combined into a single observation called **player_state** with shape (6, ).
 
 ---
 ## Rewards
