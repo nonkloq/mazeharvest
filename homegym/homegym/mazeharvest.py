@@ -7,7 +7,6 @@ from pygame.surface import Surface
 
 import pygame
 from homegym._envtypings import (
-    ColorRGB,
     EnvParams,
     NumVal,
     Observations,
@@ -47,6 +46,7 @@ class StepData:
 
     kill_count: int = 0
     harvest_count: int = 0
+    harvest_bonus: float = 0
     ammo_pickup: int = 0
     shoot_count: int = 0
 
@@ -67,6 +67,7 @@ class StepData:
         self.harvest_count = 0
         self.ammo_pickup = 0
         self.shoot_count = 0
+        self.harvest_bonus = 0
 
         self.kill_type = 0
         self.harvest_type = 0
@@ -92,8 +93,12 @@ class EnvBackBone:
 
         total_cells = height * width
 
-        self.moles = [Mole() for _ in range(int(env_params.mole_prop * total_cells))]
-        self.plants = [Plant() for _ in range(int(env_params.plant_prop * total_cells))]
+        self.moles = [
+            Mole() for _ in range(int(env_params.mole_prop * total_cells))
+        ]
+        self.plants = [
+            Plant() for _ in range(int(env_params.plant_prop * total_cells))
+        ]
         _alpha = env_params.alpha
         _step_size = env_params.step
         _xalpha = env_params.xalpha
@@ -118,9 +123,13 @@ class EnvBackBone:
 
         self.env_air_poison_level: float = 0
 
-        avs_le = (self.width * self.height) / 2
-
-        self._env_poison_scalar: float = (avs_le / 10) / total_cells
+        self._env_poison_scalar: float = 0.05
+        # reduction based on env size and wall Proportion
+        tc = total_cells
+        tw = tc * (env_params.wall_prop)
+        rs = (min(tc / 10, 100) + min(tw / 10, 50)) / 150
+        part_s = 0.04 * rs  # min scalar 0.01
+        self._env_poison_scalar -= part_s
 
         # additional stats
         self._kill_count = 0
@@ -142,7 +151,9 @@ class EnvBackBone:
         self.env_air_poison_level = 0
 
         # generate walls
-        wall_map = self.maze_generator.generate_noise_maze(self.env_params.wall_prop)
+        wall_map = self.maze_generator.generate_noise_maze(
+            self.env_params.wall_prop
+        )
 
         wall_types = list(range(len(C.WALL_TYPES)))
 
@@ -199,6 +210,7 @@ class EnvBackBone:
         if self.rman.random.random() < C.PLANT_SPAWN_PROBABILITY:
             plant = self.plant_spawner.spawn()
             if plant is not None:
+                plant._spawn_ts = self._step_count
                 randidx = self.board.get_empty_cell(agent_tile)
                 self.board.add_object(plant, randidx)
 
@@ -214,8 +226,12 @@ class EnvBackBone:
             left_face = FacingDirection.from_number(facedir.value - 1)
             right_face = FacingDirection.from_number(facedir.value + 1)
 
-            left_cell = self.board.get_next_cell(currcell, left_face, direction)
-            right_cell = self.board.get_next_cell(currcell, right_face, direction)
+            left_cell = self.board.get_next_cell(
+                currcell, left_face, direction
+            )
+            right_cell = self.board.get_next_cell(
+                currcell, right_face, direction
+            )
 
             lblock = self.board[left_cell].is_blocked
             rblock = self.board[right_cell].is_blocked
@@ -271,7 +287,9 @@ class EnvBackBone:
                 self.step_data.kill_type += obj.object_repr[1]
 
         # move moles
-        attacks = self.hive_mind.perfrom_mole_actions(agent_position, danger_cells)
+        attacks = self.hive_mind.perfrom_mole_actions(
+            agent_position, danger_cells
+        )
 
         self.step_data.attack_data.extend(attacks)
 
@@ -283,7 +301,8 @@ class EnvBackBone:
 
         self.env_air_poison_level = max(
             0,
-            self.env_air_poison_level - self.step_data.env_air_poison_reduction,
+            self.env_air_poison_level
+            - self.step_data.env_air_poison_reduction,
         )
 
         self._step_count += 1
@@ -294,6 +313,7 @@ class VisionMode:
     angle: float
     length: int
     is_long: bool
+    flip_ts: int
 
 
 class Agent:
@@ -319,13 +339,22 @@ class Agent:
         self._num_rays: int = num_rays
 
         self._vision_mode: VisionMode = VisionMode(
-            C.NORMAL_VISION_ANGLE, self._view_length, False
+            C.NORMAL_VISION_ANGLE,
+            self._view_length,
+            False,
+            -C.VISION_SWITCH_COOLDOWN,
         )
         # to perform actions in the environment
         self.__env_back_bone = env_backbone
 
         self.visible_cells: Set[int] = set()
         self.edge_cells: Set[int] = set()
+
+        w, h = env_backbone.width, env_backbone.height
+        # to give exploration bonus
+        self.visited_cells = np.zeros((w * h,))
+        # for agent centered rendering
+        self.shift_from_center = np.array([0, 0])
 
     def reset(self):
         self.is_alive = True
@@ -338,8 +367,11 @@ class Agent:
 
         self.visible_cells.clear()
         self.edge_cells.clear()
+        self.visited_cells[:] = 0
+        self.shift_from_center[:] = 0
 
         self.current_cell = self.__env_back_bone.board.get_empty_cell()
+        self.visited_cells[self.current_cell] += 2
 
         self.face_direction = self.__env_back_bone.rman.random.choice(
             list(FacingDirection)
@@ -386,13 +418,22 @@ class Agent:
                     self.face_direction.value + 1
                 )
             case 3 if not self._vision_mode.is_long:  # flip to hunter vision
-                self._vision_mode.angle = C.HUNTER_VISION_ANGLE
-                self._vision_mode.length = self._max_view_length
-                self._vision_mode.is_long = True
+                duration = (
+                    self.__env_back_bone._step_count
+                    - self._vision_mode.flip_ts
+                )
+                if duration >= C.VISION_SWITCH_COOLDOWN:
+                    self._vision_mode.angle = C.HUNTER_VISION_ANGLE
+                    self._vision_mode.length = self._max_view_length
+                    self._vision_mode.is_long = True
+                    self._vision_mode.flip_ts = (
+                        self.__env_back_bone._step_count
+                    )
             case 3 if self._vision_mode.is_long:  # flip to normal vision
                 self._vision_mode.angle = C.NORMAL_VISION_ANGLE
                 self._vision_mode.length = self._view_length
                 self._vision_mode.is_long = False
+                self._vision_mode.flip_ts = self.__env_back_bone._step_count
 
             case 4 if self._ammos_in_inv > 0:  # fire a shot
                 self.__env_back_bone.air_control.register_shot(
@@ -422,6 +463,21 @@ class Agent:
             case _:
                 raise Exception("Unknown agent action flag")
 
+        # vision mode auto switch when time limit reached
+        if self._vision_mode.is_long:
+            duration = (
+                self.__env_back_bone._step_count - self._vision_mode.flip_ts
+            )
+            if duration >= C.HUNTER_VISION_DURATION:
+                self._vision_mode.angle = C.NORMAL_VISION_ANGLE
+                self._vision_mode.length = self._view_length
+                self._vision_mode.is_long = False
+                self._vision_mode.flip_ts = self.__env_back_bone._step_count
+
+        # decay the cell frequency to give bonuses throughout the episode
+        self.visited_cells = self.visited_cells * 0.99
+        self.visited_cells[self.current_cell] += 1
+
     def _move(self, direction: MovingDirection):
         """Try to move to the next cell"""
 
@@ -432,7 +488,9 @@ class Agent:
         if blocking_tiles is not None:
             # check for damage causing wall
             for cell_idx in blocking_tiles:
-                for obj in self.__env_back_bone.board[cell_idx].iterate_objects():
+                for obj in self.__env_back_bone.board[
+                    cell_idx
+                ].iterate_objects():
                     if not obj or type(obj) is not Wall:
                         continue
 
@@ -444,15 +502,48 @@ class Agent:
                             # it as damage coming from the direction relative
                             # to it (f:N, m:Left, rd:6 ,frd:2) the agent will
                             # flip the direction again and it will get the rd
-                            (direction.value * 2 + self.face_direction.value + 4) % 8,
+                            (
+                                direction.value * 2
+                                + self.face_direction.value
+                                + 4
+                            )
+                            % 8,
                             obj.damage,
                         )
                     )
             return
 
+        # Agent movement boundary box for agent centered rendering
+        x_o, y_o = divmod(self.current_cell, self.__env_back_bone.width)
+        x_n, y_n = divmod(nxt_cell, self.__env_back_bone.width)
+
+        xdif = x_n - x_o
+        ydif = y_n - y_o
+
+        if abs(xdif) > 1:
+            xdif = np.sign(xdif) * -1
+        if abs(ydif) > 1:
+            ydif = np.sign(ydif) * -1
+
+        self.shift_from_center[0] += xdif
+        self.shift_from_center[1] += ydif
+
+        # Limiting maximum shift from the center, if limit excede the
+        # environment will be shifted with offset + mid as anchor point
+        x_lim = self.__env_back_bone.height // C.AGENT_CENTER_BOUND_DENOM
+        y_lim = self.__env_back_bone.width // C.AGENT_CENTER_BOUND_DENOM
+        self.shift_from_center[0] = np.clip(
+            self.shift_from_center[0], -x_lim, x_lim
+        )
+        self.shift_from_center[1] = np.clip(
+            self.shift_from_center[1], -y_lim, y_lim
+        )
+
         self.current_cell = nxt_cell
         # collect all items
-        for obj in self.__env_back_bone.board[self.current_cell].iterate_objects():
+        for obj in self.__env_back_bone.board[
+            self.current_cell
+        ].iterate_objects():
             if not obj:
                 continue
 
@@ -467,7 +558,17 @@ class Agent:
                     self.__env_back_bone._harvest_count += 1
 
                     self.__env_back_bone.step_data.harvest_count += 1
-                    self.__env_back_bone.step_data.harvest_type += obj.object_repr[1]
+                    self.__env_back_bone.step_data.harvest_type += (
+                        obj.object_repr[1]
+                    )
+                    # When collected in short time a bonus will be given
+                    tdiff = self.__env_back_bone._step_count - obj._spawn_ts
+                    ddist = (
+                        self.__env_back_bone.height
+                        * self.__env_back_bone.width
+                    ) / 2
+                    tdiff = min(tdiff / ddist, 1)
+                    self.__env_back_bone.step_data.harvest_bonus = 1 - tdiff
 
                     self.__env_back_bone.board.remove_object(obj)
 
@@ -482,59 +583,57 @@ class Agent:
                     continue
 
     def _reward_function(self, terminal: bool) -> float:
-        if terminal:
-            return -(100.0 + self.__env_back_bone.env_air_poison_level * 0.1)
-
-        step_reward: float = 1.0
-
         step_data = self.__env_back_bone.step_data
+        health_frac = self._health / C.MAX_AGENT_HEALTH
 
-        # Here all the constants are  rewards
+        # 1) Alive bonus
+        alive_bonus = 0.05
 
-        # losses
-        negative_rewards = np.zeros(1, dtype=np.float32)
+        # 3) Positive mission gains
+        kill_reward = 0.3 * step_data.kill_type
+        harvest_reward = 1.0 * (step_data.harvest_type > 0)
+        time_bonus = 0.8 * (step_data.harvest_bonus)
+        type_bonus = 1.0 * step_data.harvest_type
+        mole_hit_reward = 0.2 * step_data.shot_mole_hit
+        ammo_pickup_reward = 0.01 * step_data.ammo_pickup
+        exploration_bonus = 0.1 * (
+            self.visited_cells[self.current_cell] <= 1.3
+        )
+        total_positive = (
+            kill_reward
+            + harvest_reward
+            + mole_hit_reward
+            + ammo_pickup_reward
+            + time_bonus
+            + type_bonus
+            + exploration_bonus
+        )
 
-        # health_factor
-        # moving the last denom closer to 1 make the punishment more aggressive
-        # negative_rewards[0] = (1 - self._health / C.MAX_AGENT_HEALTH) / 3.14
+        # 3) Negative penalties
+        #   a) health decay: more punishing as health drops
+        health_penalty = 0.6 * (1.0 - health_frac)
+        #   b) ammo usage: small cost per shot to discourage waste
+        ammo_penalty = 0.05 * step_data.shoot_count
+        #   c) poison level: damage per step
+        dps = (
+            self.__env_back_bone.env_air_poison_level
+            * self.__env_back_bone._env_poison_scalar
+        )
+        mdps = 2
+        dps = min(dps, mdps) / mdps
+        poison_penalty = 0.8 * dps
 
-        # ammo loss
-        negative_rewards[0] = step_data.shoot_count * 0.2
+        total_negative = health_penalty + ammo_penalty + poison_penalty
 
-        # same cell penalty
-        # negative_rewards[1] = (self.current_cell == step_data.prev_cell) * 1.5
+        # Final reward
+        reward = alive_bonus + total_positive - total_negative
 
-        # poison level concern
-        # negative_rewards[1] = self.__env_back_bone.env_air_poison_level * 0.1
+        # 4) Terminal reward
+        if terminal:
+            # Max negative reward
+            reward += -10
 
-        # wall hit
-        # negative_rewards[4] = step_data.shot_wall_hit * 0.2
-
-        # Gain
-        positive_rewards = np.zeros(4, dtype=np.float32)
-
-        # kill_dopomine
-        positive_rewards[0] = 11.0 * step_data.kill_type
-
-        # harvest dopomine
-        positive_rewards[1] = 47.0 * step_data.harvest_type
-
-        # Mole Hit Satisfaction
-        positive_rewards[2] = step_data.shot_mole_hit * 0.7
-
-        # Ammo pickup Satisfaction
-        positive_rewards[3] = step_data.ammo_pickup * 0.5
-
-        # # to discount the rewards when env have high poison level
-        # # by doing this the agent will get less rewards for GOOD actions
-        # poison_lvl_discount: float = max(
-        #     (1 - self.__env_back_bone.env_air_poison_level / 100), 9e-3
-        # )
-        gains = positive_rewards.sum()
-
-        losses = negative_rewards.sum()
-
-        return float(step_reward - losses + gains)
+        return reward
 
     def compute_state(self) -> Tuple[float, Observations, bool]:
         perception, visible_cells, edge_cells = (
@@ -560,7 +659,9 @@ class Agent:
         # the directions will be shifted from base dir (North faced)
         # to agent facing direction
         mask = perception[:, 5] > -1
-        perception[mask, 5] = (perception[mask, 5] - self.face_direction.value) % 8
+        perception[mask, 5] = (
+            perception[mask, 5] - self.face_direction.value
+        ) % 8
 
         loot_heuristics = self._compute_heuristics(self.__env_back_bone.plants)
         mole_heuristics = self._compute_heuristics(
@@ -575,12 +676,22 @@ class Agent:
                 # attack's from direction (here 4 flipping the dir)
                 damage_dirs[(_dir - _face_dir + 4) % 8] += damage
 
+        # Vision switch availability indicator
+        if self._vision_mode.is_long:
+            vsc = 1
+        else:
+            vsc = (
+                self.__env_back_bone._step_count - self._vision_mode.flip_ts
+            ) / C.VISION_SWITCH_COOLDOWN
+            vsc = min(vsc, 1)
+
         player_state = np.array(
             [
                 self._health / C.MAX_AGENT_HEALTH,
                 self.__env_back_bone.env_air_poison_level,
                 self._ammos_in_inv / C.AGENT_MAX_AMMO_COUNT,
                 int(self._vision_mode.is_long),
+                vsc,
                 self.face_direction.value,
             ],
             dtype=np.float32,
@@ -592,9 +703,9 @@ class Agent:
             self._reward_function(terminal),
             (
                 perception,
-                self._normalize_vector(loot_heuristics),
-                self._normalize_vector(mole_heuristics),
-                self._normalize_vector(damage_dirs),
+                loot_heuristics,
+                mole_heuristics,
+                damage_dirs,
                 player_state,
             ),
             terminal,
@@ -635,19 +746,29 @@ class Agent:
         sum_vector = np.sum(vector)
         return vector / sum_vector if sum_vector > 0 else vector
 
-    def draw(self, canvas: Surface):
+    def draw(self, canvas: Surface, center=None):
         board_width = self.__env_back_bone.width
+        board_height = self.__env_back_bone.height
 
         gx, gy = divmod(self.current_cell, board_width)
+        if center is not None:
+            a, b = center
+            gx = (gx + a) % board_height
+            gy = (gy + b) % board_width
+
         px, py = (gx * C.CELL_SIZE), (gy * C.CELL_SIZE)
 
-        face_angle = np.radians(90 - self.face_direction.value * C.ROTATION_STEP_ANGLE)
+        face_angle = np.radians(
+            90 - self.face_direction.value * C.ROTATION_STEP_ANGLE
+        )
         end_x = C.CELL_CENTER - int(C.AGENT_SIZE * np.sin(face_angle))
         end_y = C.CELL_CENTER + int(C.AGENT_SIZE * np.cos(face_angle))
 
         # agent cell
         center_cord = (C.CELL_CENTER, C.CELL_CENTER)
-        agent_surface = pygame.Surface((C.CELL_SIZE, C.CELL_SIZE), pygame.SRCALPHA)
+        agent_surface = pygame.Surface(
+            (C.CELL_SIZE, C.CELL_SIZE), pygame.SRCALPHA
+        )
 
         agent_surface.fill(C.VISIBLE_CELL_COLOR)
 
@@ -671,14 +792,24 @@ class Agent:
         # visible_cells
         for cell in self.visible_cells:
             gx, gy = divmod(cell, board_width)
+            if center is not None:
+                a, b = center
+                gx = (gx + a) % board_height
+                gy = (gy + b) % board_width
             px = gx * C.CELL_SIZE
             py = gy * C.CELL_SIZE
-            agent_surface = pygame.Surface((C.CELL_SIZE, C.CELL_SIZE), pygame.SRCALPHA)
+            agent_surface = pygame.Surface(
+                (C.CELL_SIZE, C.CELL_SIZE), pygame.SRCALPHA
+            )
             agent_surface.fill(C.VISIBLE_CELL_COLOR)
             canvas.blit(agent_surface, (py, px))
 
         for cell in self.edge_cells:
             x, y = divmod(cell, board_width)
+            if center is not None:
+                a, b = center
+                x = (x + a) % board_height
+                y = (y + b) % board_width
             x = (x * C.CELL_SIZE) + C.CELL_CENTER
             y = (y * C.CELL_SIZE) + C.CELL_CENTER
 
@@ -760,8 +891,9 @@ class Environment:
             terminal: bool
             truncate: bool
         """
-
-        assert self._agent.is_alive, "Reset the Environment before calling step"
+        assert (
+            self._agent.is_alive
+        ), "Reset the Environment before calling step"
 
         self._step_count += 1
 
@@ -787,7 +919,7 @@ class Environment:
 
         return state, reward, terminal, truncate
 
-    def render(self):
+    def render(self, agent_center=True):
         if not hasattr(self, "board_canvas"):
             self.board_canvas = pygame.Surface(
                 (
@@ -795,21 +927,20 @@ class Environment:
                     self._height * C.CELL_SIZE + C.STAT_BAR_HEIGHT,
                 )
             )
-
         canvas = self.board_canvas
-        canvas.fill((255, 255, 255))
-        self._backbone.board.render(canvas)
-        self._agent.draw(canvas)
-
+        canvas.fill(C.CANVAS_FILL_COLOR)
+        if agent_center:
+            x_0, y_0 = self._height // 2, self._width // 2
+            x, y = divmod(self._agent.current_cell, self._width)
+            x_s, y_s = self._agent.shift_from_center
+            center_offset = (x_0 + x_s - x, y_0 + y_s - y)
+        else:
+            center_offset = None
+        self._backbone.board.render(canvas, center_offset)
+        self._agent.draw(canvas, center_offset)
         # draw stats bar
         stat_bar_start_y: int = self._height * C.CELL_SIZE
         mwidth: int = self._width * C.CELL_SIZE
-        stat_bar_bg: ColorRGB = (196, 196, 196)
-        loading_bar_bg: ColorRGB = (112, 112, 114)
-        text_color: ColorRGB = (0, 0, 0)
-        health_color: ColorRGB = (0, 255, 0)
-        poison_color: ColorRGB = (255, 0, 0)
-        vision_mode_color: ColorRGB = (5, 231, 252)
 
         stat_bar_rect = pygame.Rect(
             0,
@@ -818,23 +949,29 @@ class Environment:
             C.STAT_BAR_HEIGHT,
         )
 
-        pygame.draw.rect(canvas, stat_bar_bg, stat_bar_rect)
+        pygame.draw.rect(canvas, C.STAT_BAR_BG, stat_bar_rect)
 
         stat_font = pygame.font.Font(None, 24)
 
         stat_stats_bar_start = 20
 
         kill_count = self._backbone._kill_count
-        kill_text = stat_font.render(f"Kills: {kill_count}", True, text_color)
+        kill_text = stat_font.render(
+            f"Kills: {kill_count}", True, C.TEXT_COLOR
+        )
         canvas.blit(kill_text, (stat_stats_bar_start, stat_bar_start_y + 10))
 
-        step_count = self._backbone._step_count
-        step_text = stat_font.render(f"Steps: {step_count}", True, text_color)
-        canvas.blit(step_text, (stat_stats_bar_start, stat_bar_start_y + 40))
+        # step_count = self._backbone._step_count
+        # step_text = stat_font.render(f"Steps: {step_count}", True, text_color)
+        # canvas.blit(step_text, (stat_stats_bar_start, stat_bar_start_y + 40))
 
         harvest_count = self._backbone._harvest_count
-        harvest_text = stat_font.render(f"Harvests: {harvest_count}", True, text_color)
-        canvas.blit(harvest_text, (stat_stats_bar_start, stat_bar_start_y + 70))
+        harvest_text = stat_font.render(
+            f"Harvests: {harvest_count}", True, C.TEXT_COLOR
+        )
+        canvas.blit(
+            harvest_text, (stat_stats_bar_start, stat_bar_start_y + 40)
+        )
 
         health_bar_width = 200
         health_bar_height = 20
@@ -846,7 +983,7 @@ class Environment:
 
         pygame.draw.rect(
             canvas,
-            loading_bar_bg,
+            C.LOADING_BAR_BG,
             (
                 health_bar_start,
                 health_bar_y,
@@ -854,10 +991,12 @@ class Environment:
                 health_bar_height,
             ),
         )
-        health_fill_width = int((current_health / max_health) * health_bar_width)
+        health_fill_width = int(
+            (current_health / max_health) * health_bar_width
+        )
         pygame.draw.rect(
             canvas,
-            health_color,
+            C.HEALTH_COLOR,
             (
                 health_bar_start,
                 health_bar_y,
@@ -867,7 +1006,7 @@ class Environment:
         )
 
         ammo_text = stat_font.render(
-            f"Ammo: {self._agent._ammos_in_inv}", True, text_color
+            f"Ammo: {self._agent._ammos_in_inv}", True, C.TEXT_COLOR
         )
         canvas.blit(
             ammo_text,
@@ -878,37 +1017,52 @@ class Environment:
         vision_mode_y = stat_bar_start_y + 15
 
         if self._agent._vision_mode.is_long:
-            triangle_points = [
+            vsc = 1
+        else:
+            vsc = (
+                self._backbone._step_count - self._agent._vision_mode.flip_ts
+            ) / C.VISION_SWITCH_COOLDOWN
+            vsc = min(max(vsc, 0), 1)
+
+        if self._agent._vision_mode.is_long:
+            pts = [
                 (vision_mode_x, vision_mode_y + 20),
                 (vision_mode_x - 10, vision_mode_y),
                 (vision_mode_x + 10, vision_mode_y),
             ]
-            pygame.draw.polygon(canvas, vision_mode_color, triangle_points)
+            pygame.draw.polygon(canvas, C.VISION_MODE_COLOR, pts)
         else:
-            bounding_rect = pygame.Rect(vision_mode_x - 10, vision_mode_y, 20, 20)
+            bbox = pygame.Rect(vision_mode_x - 10, vision_mode_y, 20, 20)
+            pygame.draw.ellipse(canvas, C.VISION_MODE_COLOR, bbox)
 
-            pygame.draw.ellipse(canvas, vision_mode_color, bounding_rect)
+        # Vision mode colldown loading bar
+        bar_w, bar_h = 20, 4
+        bar_x = vision_mode_x - bar_w // 2
+        bar_y = vision_mode_y + (
+            25 if self._agent._vision_mode.is_long else 30
+        )
 
-            pygame.draw.rect(
-                canvas,
-                stat_bar_bg,
-                (
-                    vision_mode_x - 10,
-                    vision_mode_y + 10,
-                    20,
-                    10,
-                ),
-            )
+        pygame.draw.rect(canvas, C.STAT_BAR_BG, (bar_x, bar_y, bar_w, bar_h))
+        r, g, b = C.VISION_MODE_COLOR
+        pygame.draw.rect(
+            canvas,
+            (r, int(g * vsc), b),
+            (bar_x, bar_y, int(bar_w * vsc), bar_h),
+        )
+        # ---
 
-        poison_level = self._backbone.env_air_poison_level / 100
-        poison_bar_height = 50
+        poison_level = (
+            self._backbone.env_air_poison_level
+            * self._backbone._env_poison_scalar
+        )
+        poison_bar_height = 25
         poison_bar_width = 10
         poison_bar_x = int(mwidth * 0.9)
         poison_bar_y = stat_bar_start_y + 10
 
         pygame.draw.rect(
             canvas,
-            loading_bar_bg,
+            C.LOADING_BAR_BG,
             (poison_bar_x, poison_bar_y, poison_bar_width, poison_bar_height),
         )
         poison_fill_height = int(
@@ -916,7 +1070,7 @@ class Environment:
         )
         pygame.draw.rect(
             canvas,
-            poison_color,
+            C.POISON_COLOR,
             (
                 poison_bar_x,
                 poison_bar_y + poison_bar_height - poison_fill_height,
@@ -925,9 +1079,9 @@ class Environment:
             ),
         )
         ammo_text = stat_font.render(
-            f"{self._backbone.env_air_poison_level * self._backbone._env_poison_scalar:.1f}/dps",
+            f"{self._backbone.env_air_poison_level * self._backbone._env_poison_scalar:.1f} pl",
             True,
-            text_color,
+            C.TEXT_COLOR,
         )
         canvas.blit(
             ammo_text,
@@ -975,7 +1129,9 @@ def _calculate_view_wl(
         C.MIN_VIEW_LENGTH <= view_length <= _max_view_length
     ), f"View length {view_length} is invalid"
 
-    _hunter_vision_add_on: int = int(view_length * C.HUNTER_VIEW_LENGTH_INCREASE_FACTOR)
+    _hunter_vision_add_on: int = int(
+        view_length * C.HUNTER_VIEW_LENGTH_INCREASE_FACTOR
+    )
 
     assert (
         _hunter_vision_add_on + view_length <= _max_view_length

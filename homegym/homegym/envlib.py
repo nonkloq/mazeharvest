@@ -265,7 +265,7 @@ def calculate_cell_weight(
     # Exp decay to map the distance to a probability
     # distribution: prob = exp(-D) + \eps
     # here exp is not e but 10
-    prob = 10 ** (-distance)
+    prob = 100 ** (-distance)
 
     return float(100 * (prob * pref)) + 1e-8
 
@@ -728,7 +728,7 @@ class ObjectSpawner:
         if self.step_size[1] > 0:
             self.probs = (
                 self.step_size[0] * self.probs
-                + self.step_size[1] * self.step_size[1]
+                + self.step_size[1] * self.extreme_probs
             )
             self.probs /= sum(self.probs)
 

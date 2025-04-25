@@ -271,11 +271,11 @@ class Trail(BoardObject):
     def get_props(typ: int):
         match typ:
             case C.MOLE_ATTACK_TRAIL_UID:
-                return (255, 0, 0), 2
+                return C.MOLE_ATTACK_TRAIL, 2
             case C.SHOT_UID:
-                return (255, 251, 0), 5
+                return C.SHOT_TRAIL, 5
             case C.MOLE_UID:
-                return (102, 52, 22), 3
+                return C.MOLE_TRAIL, 3
             case _:
                 return (0, 0, 0), 1
 
@@ -397,6 +397,7 @@ class Plant(BoardObject):
         self.poison_reduction: float = 0.1
 
         self.heal: float = 10.0
+        self._spawn_ts = -1
 
     def spawn(self, plant_type: int):
         self._truth_value = True
@@ -459,7 +460,12 @@ class Wall(BoardObject):
             else self.health / C.SHOT_POWER
         )
 
-        return (self.object_id, self.damage / 10, health, C.NO_DIRECTION)
+        return (
+            self.object_id,
+            self.damage / C.MAX_WALL_DAMAGE,
+            health,
+            C.NO_DIRECTION,
+        )
 
     def draw(self, canvas: Surface, x: int, y: int, obc: int) -> int:
         wall_width = wall_height = C.CELL_SIZE
@@ -487,7 +493,7 @@ class Wall(BoardObject):
         alpha = 1 if value == C.POS_INF else value / C.SHOT_POWER - 0.2
         alpha = max(alpha, 0.1)
         r, g, b = C.WALL_COLOR
-        r = int(damage / 10 * 100) or r
+        r = int((damage > 0) * 88) or r
         return (r, g, b, int(alpha * 255))
 
 

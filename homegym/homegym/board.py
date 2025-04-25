@@ -120,7 +120,9 @@ class Cell:
 
     @property
     def capacity(self):
-        return C.CELL_CAPACITY - sum(obj.weight for obj in self.__objects if obj)
+        return C.CELL_CAPACITY - sum(
+            obj.weight for obj in self.__objects if obj
+        )
 
     @property
     def is_blocked(self) -> bool:
@@ -129,8 +131,7 @@ class Cell:
     @property
     def is_view_blocked(self) -> bool:
         return any(
-            obj._view_blocker
-            for obj in self.__objects  # pyright: ignore
+            obj._view_blocker for obj in self.__objects  # pyright: ignore
         )
 
     def __add_stackable_object(self, st_obj: BoardObject) -> bool:
@@ -138,7 +139,9 @@ class Cell:
             return False
 
         for obj in self.__objects:
-            if (type(obj) is StackableObject) and (obj.object_id == st_obj.object_id):
+            if (type(obj) is StackableObject) and (
+                obj.object_id == st_obj.object_id
+            ):
                 obj.increase_count(st_obj.count)
                 return True
         return False
@@ -216,13 +219,17 @@ IGNORE_TYPES = {StackableObject, Trail}
 
 
 class Board:
-    def __init__(self, height: int, width: int, rman: RNDManager = global_rand_manager):
+    def __init__(
+        self, height: int, width: int, rman: RNDManager = global_rand_manager
+    ):
         self._width = width
         self._height = height
 
         self.rman = rman
 
-        self.__board_array: List[Cell] = [Cell(k) for k in range(width * height)]
+        self.__board_array: List[Cell] = [
+            Cell(k) for k in range(width * height)
+        ]
 
         self.__fast_free_cell_lookup: NDArray[np.int8] = np.zeros(
             width * height, dtype=np.int8
@@ -256,7 +263,9 @@ class Board:
         self.__fast_free_cell_lookup[obj.cell_id] -= 1
 
     def add_object(self, obj: BoardObject, target_cell: int):
-        assert self.__board_array[target_cell].add(obj), "Failed to add an object"
+        assert self.__board_array[target_cell].add(
+            obj
+        ), "Failed to add an object"
 
         if type(obj) not in IGNORE_TYPES:
             self.__fast_free_cell_lookup[target_cell] += 1
@@ -268,7 +277,9 @@ class Board:
 
         obj.cell_id = -1
 
-    def move_object(self, obj: BoardObject, target_cell: int, add_trail: bool = False):
+    def move_object(
+        self, obj: BoardObject, target_cell: int, add_trail: bool = False
+    ):
         if type(obj) is IGNORE_TYPES:
             raise Exception("Can not move stackable & trail objects")
 
@@ -330,7 +341,9 @@ class Board:
 
         while steps > 0:
             if left_face is not None and right_face is not None:
-                left_cell = self.get_next_cell(current_cell, left_face, move_direction)
+                left_cell = self.get_next_cell(
+                    current_cell, left_face, move_direction
+                )
                 right_cell = self.get_next_cell(
                     current_cell, right_face, move_direction
                 )
@@ -351,7 +364,9 @@ class Board:
                 # the view ray in the current cell so we returning it instead
                 # of the adjacent cell
                 for adjacent_cell, _ in order:
-                    for obj in self.__board_array[adjacent_cell].iterate_objects():
+                    for obj in self.__board_array[
+                        adjacent_cell
+                    ].iterate_objects():
                         yield current_cell, obj
 
             current_cell = self.get_next_cell(
@@ -373,7 +388,9 @@ class Board:
         x_cord, y_cord = divmod(current_cell, self._width)
         # Horizontal & Vertical nodes
         for _base_n, (i, j) in enumerate(C.BASE_DIRECTIONS[0]):
-            a_cord, b_cord = (x_cord + i) % self._height, (y_cord + j) % self._width
+            a_cord, b_cord = (x_cord + i) % self._height, (
+                y_cord + j
+            ) % self._width
             k = a_cord * self._width + b_cord
 
             if self.__board_array[k].can_hold(weight):
@@ -381,7 +398,9 @@ class Board:
 
         # diagonal nodes
         for _base_n, (i, j) in enumerate(C.BASE_DIRECTIONS[1]):
-            a_cord, b_cord = (x_cord + i) % self._height, (y_cord + j) % self._width
+            a_cord, b_cord = (x_cord + i) % self._height, (
+                y_cord + j
+            ) % self._width
 
             k = a_cord * self._width + b_cord
             kleft = x_cord * self._width + b_cord
@@ -467,9 +486,9 @@ class Board:
     ) -> Tuple[NDArray[np.float32], Set[int], Set[int]]:
         """Get ray perception from the current cell in a specified direction."""
 
-        perceptions: OrderedDict[Tuple[int, ObjectRepr], List[Tuple[float, int]]] = (
-            OrderedDict()
-        )
+        perceptions: OrderedDict[
+            Tuple[int, ObjectRepr], List[Tuple[float, int]]
+        ] = OrderedDict()
 
         x_cord_start, y_cord_start = divmod(current_cell, self._width)
 
@@ -479,7 +498,9 @@ class Board:
         for norm_angle, rad in compute_ray_angles(
             face_direction.value, num_rays, vision_range
         ):
-            max_dist = get_max_dist(rad, half_base, height, face_direction.value)
+            max_dist = get_max_dist(
+                rad, half_base, height, face_direction.value
+            )
             ray_x = np.cos(rad)  # indicates left side direction  (x axis)
             ray_y = np.sin(rad)  # indicates right side direction  (y axis)
 
@@ -496,20 +517,27 @@ class Board:
                 # if its a diagonal, check for view blockers
                 prev_x_cord, prev_y_cord = prev_cell
                 if (
-                    abs(i_cord - prev_x_cord) == abs(j_cord - prev_y_cord)
-                    and (_left_cell := prev_x_cord * self._width + j_cord) is not None
-                    and (_right_cell := i_cord * self._width + prev_y_cord) is not None
+                    abs(i_cord - prev_x_cord) >= 1
+                    and abs(j_cord - prev_y_cord) >= 1
+                    and (_right_cell := prev_x_cord * self._width + j_cord)
+                    is not None
+                    and (_left_cell := i_cord * self._width + prev_y_cord)
+                    is not None
                     and self.__board_array[_left_cell].is_view_blocked
                     and self.__board_array[_right_cell].is_view_blocked
                 ):
-                    cell_cord = _left_cell if abs(ray_x) > abs(ray_y) else _right_cell
+                    cell_cord = (
+                        _left_cell if abs(ray_x) > abs(ray_y) else _right_cell
+                    )
                 else:
                     cell_cord = i_cord * self._width + j_cord
 
                 prev_cell = (i_cord, j_cord)
                 visible_cells.add(cell_cord)
 
-                obj_repr = self.__board_array[cell_cord].hit_ray(curr_dist == max_dist)
+                obj_repr = self.__board_array[cell_cord].hit_ray(
+                    curr_dist == max_dist
+                )
 
                 # if there is no unseen objects we can continue to next cell
                 if obj_repr is None:
@@ -532,7 +560,9 @@ class Board:
         built_perceptions: List[NDArray[np.float32]] = []
         edge_cells: Set[int] = set()
         for key, values in perceptions.items():
-            perc = np.zeros((len(values), len(C.EMPTY_CELL_REPR) + 2), dtype=np.float32)
+            perc = np.zeros(
+                (len(values), len(C.EMPTY_CELL_REPR) + 2), dtype=np.float32
+            )
             cell_idx, obj_repr = key
             perc[:, :2] = values
             perc[:, 2:] = obj_repr
@@ -550,10 +580,14 @@ class Board:
 
         return np.vstack(built_perceptions), visible_cells, edge_cells
 
-    def render(self, canva: Surface):
+    def render(self, canva: Surface, center=None):
         offs = C.CELL_SIZE // 2
         for cell_idx, cell in enumerate(self.__board_array):
             x, y = divmod(cell_idx, self._width)
+            if center is not None:
+                a, b = center
+                x = (x + a) % self._height
+                y = (y + b) % self._width
             x, y = (
                 (x * C.CELL_SIZE) + offs,
                 (y * C.CELL_SIZE) + offs,
@@ -577,7 +611,9 @@ def get_max_dist(
     return int((base * alpha) + (height * beta))
 
 
-def compute_ray_angles(face_direction: int, num_rays: int, vision_range: float):
+def compute_ray_angles(
+    face_direction: int, num_rays: int, vision_range: float
+):
     # agent front facing angle in unit circle
     orientation = C.BASE_ORIENTATION - face_direction * C.ROTATION_STEP_ANGLE
 

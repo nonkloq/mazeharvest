@@ -43,6 +43,8 @@ MAX_VIEW_LENGTH: int = 20
 MAX_AGENT_HEALTH: float = 100.0
 NORMAL_VISION_ANGLE: float = 180.0
 HUNTER_VISION_ANGLE: float = 45.0
+HUNTER_VISION_DURATION: int = 15
+VISION_SWITCH_COOLDOWN: int = 60
 
 AGENT_MAX_AMMO_COUNT: int = 3
 
@@ -55,8 +57,8 @@ SHOT_POWER: float = 100.0
 HUNTER_VIEW_LENGTH_INCREASE_FACTOR: float = 0.4
 
 # Environment Parameters
-MOLE_SPAWN_PROBABILITY: float = 0.08
-PLANT_SPAWN_PROBABILITY: float = 0.06
+MOLE_SPAWN_PROBABILITY: float = 0.01589
+PLANT_SPAWN_PROBABILITY: float = 0.03589
 
 # --- DO NOT MODIFY IT ---
 
@@ -96,7 +98,7 @@ MOLE_TYPES: ObjectTypes = [
     {
         "step_size": 1,
         "damage": 0.5,
-        "health": 50,
+        "health": 70,
         "bullet_drop_prob": 0.3,
         "heal": 12,
         "dodge_bullets": False,
@@ -114,7 +116,7 @@ MOLE_TYPES: ObjectTypes = [
     {
         "step_size": 2,
         "damage": 1,
-        "health": 100,
+        "health": 120,
         "bullet_drop_prob": 0.75,
         "heal": 20,
         "dodge_bullets": False,
@@ -150,15 +152,15 @@ MOLE_TYPES: ObjectTypes = [
 ]
 
 MAX_PLANT_ADDON: float = 5.0
-MAX_WALL_DAMAGE: float = 10
+MAX_WALL_DAMAGE: float = 5
 # the env poison level stays the same for all size of environment,
 # plant propotion config
 PLANT_TYPES: ObjectTypes = [
-    {"poison_add_on": 1.0, "poison_reduction": 5, "heal": 3.0},
-    {"poison_add_on": 2.0, "poison_reduction": 10, "heal": 7.0},
-    {"poison_add_on": 3.0, "poison_reduction": 15, "heal": 9.0},
-    {"poison_add_on": 4.0, "poison_reduction": 20, "heal": 11.0},
-    {"poison_add_on": 5.0, "poison_reduction": 25, "heal": 13.0},
+    {"poison_add_on": 1, "poison_reduction": 2, "heal": 10.0},
+    {"poison_add_on": 2, "poison_reduction": 7, "heal": 20.0},
+    {"poison_add_on": 3, "poison_reduction": 8, "heal": 30.0},
+    {"poison_add_on": 4, "poison_reduction": 10, "heal": 40.0},
+    {"poison_add_on": 5, "poison_reduction": 15, "heal": 50.0},
 ]
 
 
@@ -188,33 +190,45 @@ WALL_TYPES: ObjectTypes = [
 # Weak Wall1, weak wall2, unbreakable wall, hot wall
 # sum should be equal to one
 standard_wall_dist: TupleF4 = (0.1, 0.2, 0.5, 0.2)
-risky_wall_dist: TupleF4 = (0.1, 0.1, 0.4, 0.4)
+risky_wall_dist: TupleF4 = (0.1, 0.1, 0.55, 0.25)
 # fortnite_ahh_dist: TupleF4 = (0.4, 0.4, 0.1, 0.1)
-high_risk_dist: TupleF4 = (0.05, 0.15, 0.35, 0.45)
+high_risk_dist: TupleF4 = (0.05, 0.15, 0.5, 0.3)
 # dangerous_dist: TupleF4 = (0.05, 0.15, 0.3, 0.5)
 
 ENV_MODES: Dict[str, EnvParams] = dict(
     easy=EnvParams(0.3, 0.1, 0.03, 1.7, 0.01, 0, standard_wall_dist),
-    medium=EnvParams(0.4, 0.15, 0.04, 1.2, 0.01, 0, standard_wall_dist),
-    hard=EnvParams(0.5, 0.15, 0.06, 0.7, 0.01, -0.9, risky_wall_dist),
-    extreme=EnvParams(0.5, 0.2, 0.08, 0, 0.01, -1.2, risky_wall_dist),
-    insane=EnvParams(0.5, 0.2, 0.1, -0.8, 0.01, -1.7, high_risk_dist),
+    medium=EnvParams(0.4, 0.12, 0.04, 1.2, 0.01, 0, standard_wall_dist),
+    hard=EnvParams(0.5, 0.14, 0.06, 0.7, 0.01, -0.2, risky_wall_dist),
+    extreme=EnvParams(0.55, 0.15, 0.08, 0, 0.01, -0.7, risky_wall_dist),
+    insane=EnvParams(0.55, 0.15, 0.1, -0.1, 0.01, -1.0, high_risk_dist),
 )
 
 # render parameters
 CELL_SIZE: int = 30
-STAT_BAR_HEIGHT: int = 90
+STAT_BAR_HEIGHT: int = 60
 CELL_CENTER: int = CELL_SIZE // 2
-
-
-VISIBLE_CELL_COLOR: ColorRGBA = (143, 143, 143, 80)
-EDGE_CELL_POINT_COLOR: ColorRGB = (255, 255, 125)
-
-BULLET_COLOR: ColorRGB = (181, 166, 66)
-FONT_COLOR: ColorRGB = (0, 0, 0)
-WALL_COLOR: ColorRGB = (69, 69, 69)
-SHOT_COLOR: ColorRGBA = (222, 211, 0, 128)
-MOLE_COLOR: ColorRGB = (105, 61, 3)
-
-AGENT_COLOR: ColorRGBA = (95, 59, 255, 215)
 AGENT_SIZE: int = int(CELL_CENTER * 0.9)
+AGENT_CENTER_BOUND_DENOM: int = 4
+
+
+CANVAS_FILL_COLOR: ColorRGBA = (229, 233, 240, 155)
+VISIBLE_CELL_COLOR: ColorRGBA = (76, 86, 106, 60)
+EDGE_CELL_POINT_COLOR: ColorRGBA = (236, 239, 244, 10)
+
+WALL_COLOR: ColorRGB = (59, 66, 82)
+
+BULLET_COLOR: ColorRGB = (208, 135, 112)
+SHOT_COLOR: ColorRGBA = (235, 203, 139, 255)
+SHOT_TRAIL: ColorRGB = (206, 173, 107)
+MOLE_COLOR: ColorRGB = (153, 106, 73)
+MOLE_TRAIL: ColorRGB = (150, 122, 102)
+MOLE_ATTACK_TRAIL: ColorRGB = (191, 97, 106)
+
+AGENT_COLOR: ColorRGBA = (136, 192, 208, 220)
+TEXT_COLOR: ColorRGB = (236, 239, 244)
+STAT_BAR_BG: ColorRGB = (67, 76, 94)
+LOADING_BAR_BG: ColorRGB = (76, 86, 106)
+
+HEALTH_COLOR: ColorRGB = (163, 190, 140)
+POISON_COLOR: ColorRGB = (191, 97, 106)
+VISION_MODE_COLOR: ColorRGB = (136, 192, 208)
