@@ -6,7 +6,7 @@ MazeHarvest is a partially observable, stochastic reinforcement learning environ
 - **Interact with dynamic obstacles** such as walls and hostile entities.
 - **Reach target locations efficiently** while adapting to environmental challenges.
 
-To install `homegym`, clone this repository and follow the instructions in [homegym/README.md](./homegym/README.md).
+To install `homegym`, follow the steps below in the [Installation](#installation) section.
 
 <!-- <img src="./experiments/aperf/rdqn_vision_net.gif" width="500"> -->
 
@@ -47,7 +47,7 @@ Implementation of few RL algorithms using Pytorch in the [experiments/algos](./e
 
 ### Install MazeHarvest Environment
 
-To install the MazeHarvest environment, follow these steps:
+To install only the MazeHarvest environment, follow these steps:
 
 1. **Clone the Repository**:
    ```bash
@@ -66,7 +66,7 @@ To install the MazeHarvest environment, follow these steps:
 
 ### Setup for Experiments
 
-To set up the environment for running experiments with MazeHarvest, follow these steps:
+To setup the environment for running experiments with MazeHarvest, follow these steps:
 
 1. **Create a Conda Environment**:
    ```bash
