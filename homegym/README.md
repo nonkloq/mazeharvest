@@ -255,10 +255,13 @@ env = Environment(env_width, env_height, env_mode="hard", seed=50)
 player = MyPlayer(env)
 env.reset()
 
-app = RealLifeSim(env=env, action_interval=0.2,policy_function=player.policy)
-app.run()
-
+sim = RealLifeSim(env=env, action_interval=0.2, policy_function=player.policy)
+try:
+    sim.run()
+finally:
+    sim.destroy()
 ```
+
 This code snippet initializes the MazeHarvest environment and starts the 3D simulation using Panda3D. The `RealLifeSim` class handles rendering and interaction within the 3D space with the given policy function.
 
 
