@@ -1,6 +1,6 @@
 # HomeGym - MazeHarvest 
 
-MazeHarvest is a grid-based reinforcement learning environment designed to train autonomous navigation agents. The agent must navigate complex terrains, interact with dynamic obstacles, and reach target locations using heuristic information and partially observable sensory inputs. The environment simulates real-world navigation challenges, such as limited visibility, dynamic obstacles, and heuristic-based decision-making.
+MazeHarvest is a grid-based reinforcement learning environment designed to train autonomous navigation agents in a partially observable environment. The agent must navigate complex terrains, interact with dynamic obstacles, and reach target locations using heuristic information and vector representation of objects in front of it to a certain distance. The environment simulates real-world navigation challenges, such as limited visibility, dynamic obstacles, and heuristic-based decision-making.
 
 ![Overview](./assets/mh3drend.png)
 
@@ -177,7 +177,7 @@ The observations with shape (1,) will be combined into a single observation call
 
 ## Mission: Navigate.
 
-The agent must efficiently navigate to target locations while avoiding obstacles and threats. It uses heuristic information, such as directional weights and sensory inputs, to plan its path and adapt to changing environments.
+The agent must efficiently navigate to target locations while avoiding obstacles and threats. It uses weighted straight-line distances from eight directions to the target locations as heuristics, and can only see what’s in front of it through ray perception. It needs to plan ahead and adapt as the environment changes.
 
 ---
 
