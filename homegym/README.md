@@ -1,23 +1,17 @@
 # HomeGym - MazeHarvest 
 
-MazeHarvest is a grid-based survival reinforcement learning environment where an agent must protect the environment from toxic plants while defending itself against hostile moles. The world is fully connected (toroidal space), meaning all edges wrap around to their opposite sides.
+MazeHarvest is a grid-based reinforcement learning environment designed to train autonomous navigation agents. The agent must navigate complex terrains, interact with dynamic obstacles, and reach target locations using heuristic information and partially observable sensory inputs. The environment simulates real-world navigation challenges, such as limited visibility, dynamic obstacles, and heuristic-based decision-making.
 
-![Overview](./assets/overview.svg)
+![Overview](./assets/mh3drend.png)
 
 ## Overview
-In MazeHarvest, the agent's primary tasks are:
+MazeHarvest focuses on training agents to:
 
-- **Harvesting plants** to reduce environmental toxicity.
-- **Defending against moles** that actively hunt the agent.
+- **Navigate to target locations** using heuristic information like directional weights and ray perception.
+- **Adapt to dynamic obstacles** such as walls, hostile entities, and environmental hazards.
+- **Plan efficient paths** in partially observable environments with limited sensory inputs.
 
-The environment is randomly generated with the following guarantees and features:
-
-- **Path connectivity**: There is always at least one path between any two free cells.
-- **World wrapping**: The grid is fully connected (toroidal).
-- **Limited visibility**: The agent cannot see the entire grid but perceives its surroundings through ray perception.
-- **Dynamic threats**: Plants & Moles are spawned randomly and the difficulty will progressively increase.
-
-The agent also receives heuristic information about threats, plants and environmental conditions.
+The environment is highly customizable, allowing users to configure terrain complexity, object proportions, and difficulty levels. It guarantees path connectivity and features a toroidal grid where edges wrap around, simulating a continuous space.
 
 ---
 
@@ -29,27 +23,63 @@ The agent also receives heuristic information about threats, plants and environm
 - Configurable difficulty and object types (check [constants.py](./homegym/constants.py)), can control object proportions and the spawn rates.
 
 ### World Dynamics
-- **World wrapping**: The grid wraps around like a globe.
-- **Moles**: 
-  - Use a depth-restricted A* algorithm with probabilistic logic to actively hunt the agent.
-  - Drop ammo and heal the agent when killed.
-- **Plants**:
-  - Increase environmental toxicity at each time step.
-  - Provide healing and reduce toxicity when harvested.
-- **Walls**:
-  - Breakable walls require up to 1 to 2 hits by fist or 1 shot to destroy.
-  - Unbreakable walls can not be destroyed and will not deal damage.
-  - Electric walls (red colored walls), when agent hits an electric wall it will lose some health (-5hp).
+MazeHarvest models real-world abstractions to simulate navigation challenges:
+
+- **Walls - Environmental Obstacles**:
+  - Serve as obstacles the agent must navigate or interact with.
+  - Three types:
+    - **Breakable Walls**: Can be destroyed by the agent.
+    - **Unbreakable Walls**: Permanent barriers that cannot be destroyed.
+    - **Dangerous Walls**: Cause damage if collided with.
+  - Abstract generic obstacles in real-world settings, influencing the agent’s path planning and health management.
+
+- **Plants - Target Locations**:
+  - Represent key locations the agent needs to reach and interact with.
+  - Vary in priority, guiding the agent’s harvesting order, denoted by colors from green (low priority) to red (high priority).
+  - Collecting a plant heals the agent by a small amount based on the priority level.
+  - The agent receives heuristic information as directional weights around eight directions, indicating plant density and priority to help guide navigation.
+
+- **Moles - Hostile Autonomous Creatures**:
+  - Model independent, thinking creatures with complex behaviors.
+  - Use a probabilistic policy combined with depth-restricted A* search to:
+    - Actively seek and attack the agent.
+    - Flee or ignore the agent at times, simulating natural, unpredictable behaviors.
+    - Perform autonomous tasks beyond just aggression, mimicking real-world creature intelligence.
+  - Vary in size and threat level, adding complexity to navigation. Killing a mole increases the agent health by a small level.
+  - Abstract dynamic, intelligent adversaries that require strategic offense and defense.
+
+- **Resources - Vision Flip & Ammunition**:
+  - **Vision Flip**: Temporarily extends view range with a narrower field, cooldown 60s, encouraging strategic use.
+  - **Ammunition**: Used to attack walls and moles. Spawns on the ground and can drop from dead moles with a random chance, adding a tactical layer to combat and resource use.
+
+- **Health - Survival Pressure**:
+  - The agent starts with 100 HP (hit points).
+  - HP decreases when:
+    - Attacked by hostile moles.
+    - Colliding with dangerous walls.
+    - Exposure to air poison buildup over time.
+  - If HP reaches 0, the episode ends — simulating the agent’s "death."
+  - Encourages risk-aware behavior, promoting avoidance of threats and urgency in task completion.
+
+- **Air Poison - Time Pressure**:
+  - Introduced to discourage slow or passive behavior.
+  - Poison level increases every step while plants are present.
+  - Collecting plants reduces the poison level.
+  - High poison levels cause HP to drop over time, simulating environmental degradation.
+  - Forces the agent to act efficiently and complete tasks quickly to survive.
 
 ---
 
 ## Agent Overview
 
 ### Capabilities
-- **Current Cell Auto Actions**: Pick up ammo (will not pick if inventory is full) and harvest plants from the current cell.
-- **Combat**: Attack with fists or shoot with ammo (fists can be used even with/without ammo).
-- **Navigation**: Move in 4 directions and change facing direction (left or right).
-- **Vision modes**: Switch between normal and hunter vision modes.
+The agent is equipped with basic navigation and interaction abilities:
+- **Navigation**: Move in four directions and adjust facing direction to explore the grid.
+- **Interaction**: Automatically interact with objects in the current cell, such as picking up ammo or harvesting plants.
+- **Vision Modes**: Switch between normal and hunter vision to adapt to different scenarios. Normal vision offers a wide field of view, while hunter vision provides extended range but a narrower field.
+- **Combat**: Attack or shoot objects to clear paths or defend against hostile entities.
+
+The agent relies on local observations and heuristic data, such as weighted distances to targets, to make decisions. This mimics real-world navigation systems that use GPS-like information and sensory inputs to reach destinations.
 
 ### Action Space 
 
@@ -145,9 +175,9 @@ The observations with shape (1,) will be combined into a single observation call
 
 ---
 
-## Mission: Survive.
+## Mission: Navigate.
 
-Navigate, harvest and combat moles to maintain the air poison level. The primary objective is to not die.
+The agent must efficiently navigate to target locations while avoiding obstacles and threats. It uses heuristic information, such as directional weights and sensory inputs, to plan its path and adapt to changing environments.
 
 ---
 

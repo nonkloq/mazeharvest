@@ -5,7 +5,7 @@ import torch
 from algos.lstmppo.brain import Brain
 from homegym import EnvParams
 
-MODEL_PATH: str = "./agents/lstmppo_v2_dense_large.pth"
+MODEL_PATH: str = "./agents/lstmppo_v2_dense_large.pth.ign"
 HEIGHT: int = 20
 WIDTH: int = 30
 SEED: int = 69420
@@ -64,3 +64,4 @@ play(
     record_vid=False,
     video_name="test_run_lstmppo",
 )
+print("Simulation Ended")

@@ -227,7 +227,7 @@ class Board:
 
         self.rman = rman
 
-        self.__board_array: List[Cell] = [
+        self._board_array: List[Cell] = [
             Cell(k) for k in range(width * height)
         ]
 
@@ -236,7 +236,7 @@ class Board:
         )
 
     def __getitem__(self, cell_id: int) -> Cell:
-        return self.__board_array[cell_id]
+        return self._board_array[cell_id]
 
     def get_empty_cell(self, igncell: Optional[int] = None) -> int:
         """Get a random empty cell index."""
@@ -252,7 +252,7 @@ class Board:
 
     def reset(self):
         self.__fast_free_cell_lookup[:] = 0
-        for cell in self.__board_array:
+        for cell in self._board_array:
             cell.reset_cell()
 
     def remove_presence(self, obj: BoardObject):
@@ -263,7 +263,7 @@ class Board:
         self.__fast_free_cell_lookup[obj.cell_id] -= 1
 
     def add_object(self, obj: BoardObject, target_cell: int):
-        assert self.__board_array[target_cell].add(
+        assert self._board_array[target_cell].add(
             obj
         ), "Failed to add an object"
 
@@ -271,7 +271,7 @@ class Board:
             self.__fast_free_cell_lookup[target_cell] += 1
 
     def remove_object(self, obj: BoardObject):
-        self.__board_array[obj.cell_id].remove(obj)
+        self._board_array[obj.cell_id].remove(obj)
         if type(obj) not in IGNORE_TYPES:
             self.__fast_free_cell_lookup[obj.cell_id] -= 1
 
@@ -285,13 +285,13 @@ class Board:
 
         curr_cell = obj.cell_id
 
-        node = self.__board_array[curr_cell].remove_node(obj)
-        assert self.__board_array[target_cell].add_node(
+        node = self._board_array[curr_cell].remove_node(obj)
+        assert self._board_array[target_cell].add_node(
             node
         ), "Failed to move an object"
 
         if add_trail and obj.face_direction is not None:
-            self.__board_array[curr_cell].add(
+            self._board_array[curr_cell].add(
                 Trail(
                     obj.object_id,
                     obj.face_direction.value,
@@ -348,8 +348,8 @@ class Board:
                     current_cell, right_face, move_direction
                 )
 
-                lblock = self.__board_array[left_cell].is_view_blocked
-                rblock = self.__board_array[right_cell].is_view_blocked
+                lblock = self._board_array[left_cell].is_view_blocked
+                rblock = self._board_array[right_cell].is_view_blocked
                 order = [(left_cell, int(lblock)), (right_cell, int(rblock))]
 
                 # we need to first return the view blocking object
@@ -364,7 +364,7 @@ class Board:
                 # the view ray in the current cell so we returning it instead
                 # of the adjacent cell
                 for adjacent_cell, _ in order:
-                    for obj in self.__board_array[
+                    for obj in self._board_array[
                         adjacent_cell
                     ].iterate_objects():
                         yield current_cell, obj
@@ -373,7 +373,7 @@ class Board:
                 current_cell, face_direction, move_direction
             )
 
-            for obj in self.__board_array[current_cell].iterate_objects():
+            for obj in self._board_array[current_cell].iterate_objects():
                 yield current_cell, obj
             else:
                 yield current_cell, NoObj()
@@ -393,7 +393,7 @@ class Board:
             ) % self._width
             k = a_cord * self._width + b_cord
 
-            if self.__board_array[k].can_hold(weight):
+            if self._board_array[k].can_hold(weight):
                 yield k, _base_n * 2
 
         # diagonal nodes
@@ -406,10 +406,10 @@ class Board:
             kleft = x_cord * self._width + b_cord
             kright = a_cord * self._width + y_cord
 
-            if self.__board_array[k].can_hold(weight) and (
+            if self._board_array[k].can_hold(weight) and (
                 not (
-                    self.__board_array[kleft].is_blocked
-                    and self.__board_array[kright].is_blocked
+                    self._board_array[kleft].is_blocked
+                    and self._board_array[kright].is_blocked
                 )
             ):
                 yield k, _base_n * 2 + 1
@@ -523,8 +523,8 @@ class Board:
                     is not None
                     and (_left_cell := i_cord * self._width + prev_y_cord)
                     is not None
-                    and self.__board_array[_left_cell].is_view_blocked
-                    and self.__board_array[_right_cell].is_view_blocked
+                    and self._board_array[_left_cell].is_view_blocked
+                    and self._board_array[_right_cell].is_view_blocked
                 ):
                     cell_cord = (
                         _left_cell if abs(ray_x) > abs(ray_y) else _right_cell
@@ -535,7 +535,7 @@ class Board:
                 prev_cell = (i_cord, j_cord)
                 visible_cells.add(cell_cord)
 
-                obj_repr = self.__board_array[cell_cord].hit_ray(
+                obj_repr = self._board_array[cell_cord].hit_ray(
                     curr_dist == max_dist
                 )
 
@@ -576,13 +576,13 @@ class Board:
 
         # reset the hit cell ray memory
         for cell in visible_cells:
-            self.__board_array[cell].reset_ray_mem()
+            self._board_array[cell].reset_ray_mem()
 
         return np.vstack(built_perceptions), visible_cells, edge_cells
 
     def render(self, canva: Surface, center=None):
         offs = C.CELL_SIZE // 2
-        for cell_idx, cell in enumerate(self.__board_array):
+        for cell_idx, cell in enumerate(self._board_array):
             x, y = divmod(cell_idx, self._width)
             if center is not None:
                 a, b = center

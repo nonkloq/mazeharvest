@@ -35,6 +35,9 @@ class HomeGymWrapper:
 
         return pobs
 
+    def episode_info(self):
+        return self.env.episode_info()
+
     def step(self, action):
         obs, reward, done, trunc = self.env.step(action)
         episode_info = None

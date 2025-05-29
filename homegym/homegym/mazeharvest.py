@@ -631,7 +631,7 @@ class Agent:
         # 4) Terminal reward
         if terminal:
             # Max negative reward
-            reward += -10
+            reward += -50
 
         return reward
 
@@ -919,6 +919,12 @@ class Environment:
 
         return state, reward, terminal, truncate
 
+    def get_center_offset(self):
+        x_0, y_0 = self._height // 2, self._width // 2
+        x, y = divmod(self._agent.current_cell, self._width)
+        x_s, y_s = self._agent.shift_from_center
+        return (x_0 + x_s - x, y_0 + y_s - y)
+
     def render(self, agent_center=True):
         if not hasattr(self, "board_canvas"):
             self.board_canvas = pygame.Surface(
@@ -930,10 +936,7 @@ class Environment:
         canvas = self.board_canvas
         canvas.fill(C.CANVAS_FILL_COLOR)
         if agent_center:
-            x_0, y_0 = self._height // 2, self._width // 2
-            x, y = divmod(self._agent.current_cell, self._width)
-            x_s, y_s = self._agent.shift_from_center
-            center_offset = (x_0 + x_s - x, y_0 + y_s - y)
+            center_offset = self.get_center_offset()
         else:
             center_offset = None
         self._backbone.board.render(canvas, center_offset)
