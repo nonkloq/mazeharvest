@@ -165,7 +165,7 @@ The observations with shape (1,) will be combined into a single observation call
 - **Penalties**:  
   - −(0.6 × (1 − health / max_health)) as a health-based penalty.  
   - −(0.8 × (min(dps, 2) / 2)) poison level penalty, based on damage per step (capped at 2).  
-  - −10 for reaching a terminal state (agent death).
+  - −50 for reaching a terminal state (agent death).
 
 - **Exploration Bonus**:  
   +0.1 for visiting a new or rarely visited tile.  
