@@ -945,12 +945,6 @@ class RealLifeSim(ShowBase):
 
 
 if __name__ == "__main__":
-    # import subprocess
-    #
-    # file = "/home/satz/Projects/rl_dnc/recurrent-ppo-truncated-bptt/analyzer/run_panda.py"
-    # cmd = "--ss"
-    # jsons = """{"ww1": 0.1, "reset_seed": 1, "record_sim": false, "alpha": [0.0, 1.2], "hw": 0.2, "plant_spawn_prob": 0.03589, "height": 20, "mole_spawn_prob": 0.01589, "init_app": true, "_frame_wait": 0.2, "env_mode": "dense_terrain", "ww2": 0.2, "width": 20, "disable_edit": true, "done": false, "uw": 0.5, "plant_prop": 0.12, "model": "myx-ft", "FormSubmitter:Reset Controller-Reset": false, "truncated": false, "timestep": 0, "vid_name": "default", "show_recurrent_cell": false, "is_greedy": false, "wall_prop": 0.4, "seed": 69420, "error_msg": "", "mole_prop": 0.04, "agent_center": true, "pygame_sim": true, "running": false, "max_steps": 8000, "step": 0.01}"""
-    # subprocess.run(["python", file, cmd, jsons], check=True)
     try:
         env_width, env_height = 20, 20
         print(f"Initializing environment ({env_width}x{env_height})...")

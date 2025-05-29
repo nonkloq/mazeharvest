@@ -230,7 +230,34 @@ pygame.quit()
 
 <img src="./assets/sample.png" alt="Sample" width="500">
 
-**There are two render models available:** when `agent_center=True`, the agent remains in a bounding box in center of the grid, and moving outside the box shifts the environment while the agent stays on the same position (similar to MOBA-style games); when set to False, the grid remains fixed, and the agent moves across the grid. The default is True.
+**There are two render modes available:** when `agent_center=True`, the agent remains in a bounding box in center of the grid, and moving outside the box shifts the environment while the agent stays on the same position (similar to MOBA-style games); when set to False, the grid remains fixed, and the agent moves across the grid. The default is True.
+
+#### Rendering in 3D 
+To render the environment in 3D, use the `RealLifeSim` class from the `render3d.py` module. This class utilizes Panda3D to provide a 3D visualization of the MazeHarvest environment.
+
+**Rendering Modes:**
+- **First Person Perspective (FPP)**: Offers a view from the agent's perspective.
+- **Bird's Eye View**: Provides an overhead view of the environment.
+- **Full Grid View**: Displays the entire grid from above (similar to the 2d render).
+
+**Policy Function:**
+The `policy_function` parameter in `RealLifeSim` allows you to define a custom policy for the agent's actions. This function should have a reference to the environment, take steps on the environment, and manage the agent, including handling hidden states. It should return a boolean indicating whether the episode has ended (done or truncated). For an example, refer to `experiments/runsim3d.py`. If no policy function is provided, random actions will be sampled.
+
+
+```python 
+from homegym.mazeharvest import Environment
+from homegym.render3d import RealLifeSim
+
+env_width, env_height = 20, 20
+env = Environment(env_width, env_height, env_mode="hard", seed=50)
+env.reset()
+
+app = RealLifeSim(env=env, action_interval=0.2,policy_function=player.policy)
+app.run()
+
+```
+This code snippet initializes the MazeHarvest environment and starts the 3D simulation using Panda3D. The `RealLifeSim` class handles rendering and interaction within the 3D space.
+
 
 ### Observation Unwrapping
 ```python
