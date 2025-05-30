@@ -233,6 +233,11 @@ pygame.quit()
 **There are two render modes available:** when `agent_center=True`, the agent remains in a bounding box in center of the grid, and moving outside the box shifts the environment while the agent stays on the same position (similar to MOBA-style games); when set to False, the grid remains fixed, and the agent moves across the grid. The default is True.
 
 #### Rendering in 3D 
+
+<video src="https://github.com/user-attachments/assets/3f52203f-86c4-4625-bfd1-573f84340afb" width="540" height="340"></video>
+
+> The web interface is a streamlit app made only for testing this environment with different trained models interactively. Here we can control the environment configuration, spawn rates and visualize the the model outputs.
+
 To render the environment in 3D, use the `RealLifeSim` class from the `render3d.py` module. This class uses Panda3D to create a 3d Visulization of the environment. (It just maps the board objects to 3D Objects and the frames between steps are interpolated to create smooth transition)
 
 **Rendering Modes:**
