@@ -236,7 +236,7 @@ pygame.quit()
 
 <video src="https://github.com/user-attachments/assets/3f52203f-86c4-4625-bfd1-573f84340afb" width="540" height="340"></video>
 
-> The web interface is a streamlit app made only for testing this environment with different trained models interactively. Here we can control the environment configuration, spawn rates and visualize the the model outputs.
+> This web interface is a streamlit app made only for testing & debugging this environment with different trained models interactively. Here we can control the environment configuration, spawn rates and visualize the model outputs.
 
 To render the environment in 3D, use the `RealLifeSim` class from the `render3d.py` module. This class uses Panda3D to create a 3d Visulization of the environment. (It just maps the board objects to 3D Objects and the frames between steps are interpolated to create smooth transition)
 
