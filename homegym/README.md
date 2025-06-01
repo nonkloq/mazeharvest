@@ -198,7 +198,7 @@ from homegym import MazeHarvest
 import pygame
 import time
 
-env = MazeHarvest(width=20, height=30, env_mode="hard", seed=420, num_rays=21, max_steps=1000)
+env = MazeHarvest(width=30, height=20, env_mode="hard", seed=420, num_rays=21, max_steps=1000)
 
 obs = env.reset(seed=1)
 pygame.init()
