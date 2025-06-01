@@ -250,13 +250,13 @@ The `policy_function` parameter in `RealLifeSim` allows you to define a custom p
 
 
 ```python 
-from homegym.mazeharvest import Environment
+from homegym import MazeHarvest
 from homegym.render3d import RealLifeSim
 
 class MyPlayer: ...
 
 env_width, env_height = 20, 20
-env = Environment(env_width, env_height, env_mode="hard", seed=50)
+env = MazeHarvest(env_width, env_height, env_mode="hard", seed=50)
 player = MyPlayer(env)
 env.reset()
 
